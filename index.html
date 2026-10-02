@@ -10,28 +10,23 @@
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:ital,wght@0,500;0,600;0,700;0,800;1,700;1,800;1,900&family=Barlow:wght@400;500;600&display=swap">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
 <style>
-  /* Jersey palette: yellow = leader, red = runner-up, green = new tiles, pink = planned route. */
+  /* Jersey palette: yellow = leader, red = runner-up, blue = third, green = new tiles, pink = planned route. */
   :root {
-    --yellow: #ffd400; --red: #e4002b; --green: #00a651; --pink: #ff2d8a; --steel: #3d4450;
+    --yellow: #ffd400; --red: #e4002b; --blue: #1f5bff; --green: #00a651; --pink: #ff2d8a; --steel: #3d4450;
     --ink: #0d0e10; --ink-2: #16181b; --ink-3: #22252a; --ink-line: #2e3238;
     --chalk: #f4f2ec; --chalk-muted: #8d929b;
     --paper: #f3f1ea; --paper-2: #e8e5db; --paper-text: #0d0e10; --paper-muted: #5c6068; --paper-line: #d3cfc2;
     --visited: #0d0e10; --visited-opacity: 0.14;
-    --basemap-filter: grayscale(1) contrast(.85) brightness(1.06);
     --display: "Barlow Condensed", "Arial Narrow", sans-serif;
     --body: "Barlow", -apple-system, "Segoe UI", sans-serif;
   }
   @media (prefers-color-scheme: dark) {
     :root:not([data-theme="light"]) {
       --paper: #0d0e10; --paper-2: #16181b; --paper-text: #f4f2ec; --paper-muted: #9a9ea6; --paper-line: #2e3238;
-      --visited: #ffffff; --visited-opacity: 0.22; --steel: #aab3c2;
-      --basemap-filter: grayscale(1) invert(1) contrast(.8) brightness(.95);
     }
   }
   :root[data-theme="dark"] {
     --paper: #0d0e10; --paper-2: #16181b; --paper-text: #f4f2ec; --paper-muted: #9a9ea6; --paper-line: #2e3238;
-    --visited: #ffffff; --visited-opacity: 0.22; --steel: #aab3c2;
-      --basemap-filter: grayscale(1) invert(1) contrast(.8) brightness(.95);
   }
 
   * { box-sizing: border-box; }
@@ -146,7 +141,6 @@
   /* Leaflet chrome in the same language */
   .leaflet-container { font-family: var(--body); }
   .leaflet-container.pick { cursor: crosshair; }
-  .leaflet-tile-pane { filter: var(--basemap-filter); }
   .leaflet-bar { border: 0 !important; box-shadow: none !important; }
   .leaflet-bar a { background: var(--ink) !important; color: var(--chalk) !important; border-radius: 0 !important;
     border-bottom: 1px solid var(--ink-line) !important; }
@@ -326,7 +320,6 @@
   const css = (v) => getComputedStyle(document.documentElement).getPropertyValue(v).trim();
   const $ = (id) => document.getElementById(id);
   const map = L.map("map", { preferCanvas: true }).setView([51.0, 4.4], 10);
-  // OSM tiles, desaturated by CSS (.leaflet-tile-pane) so the tiles carry the colour.
   L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
     maxZoom: 19, attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
   }).addTo(map);
@@ -336,7 +329,8 @@
   const changesLayer = L.layerGroup().addTo(map);
   let prev = null, changes = null, current = { kml: null, name: null }, changeFocus = false;
 
-  const colorFor = (i) => (i === 0 ? css("--yellow") : i === 1 ? css("--red") : css("--steel"));
+  const PODIUM = ["--yellow", "--red", "--blue"];
+  const colorFor = (i) => css(PODIUM[i] || "--steel");
   const fmt = (n) => n.toLocaleString("en-US");
 
   function tileBounds(k, z) {
@@ -393,7 +387,7 @@
       for (const k of tiles) {
         L.rectangle(tileBounds(k, zoom), {
           weight: isSel ? 1.5 : 0, color: css("--ink"), fillColor: colorFor(i),
-          fillOpacity: selected === null || isSel ? (i < 2 ? 0.85 : 0.55) : 0.25,
+          fillOpacity: selected === null || isSel ? (i < PODIUM.length ? 0.85 : 0.55) : 0.25,
         }).on("click", () => select(i)).bindTooltip(`P${i + 1} · ${tiles.length} tiles`).addTo(yardLayer);
       }
     }
