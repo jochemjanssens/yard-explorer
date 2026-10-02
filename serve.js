@@ -8,7 +8,7 @@ const path = require("path");
 
 const port = Number(process.argv[2]) || 8765;
 const exportsDir = path.join(__dirname, "exports");
-const types = { ".html": "text/html", ".js": "text/javascript", ".json": "application/json", ".kml": "application/vnd.google-earth.kml+xml" };
+const types = { ".html": "text/html", ".js": "text/javascript", ".json": "application/json", ".svg": "image/svg+xml", ".kml": "application/vnd.google-earth.kml+xml" };
 
 function listExports() {
   if (!fs.existsSync(exportsDir)) return [];
