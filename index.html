@@ -197,6 +197,9 @@
   .stages a, .fine a { color: inherit; text-decoration-color: var(--yellow); text-decoration-thickness: 2px; text-underline-offset: 3px; }
   .fine { margin-top: 56px; padding-top: 16px; border-top: 1px solid var(--paper-line); font-size: 13px; color: var(--paper-muted); max-width: 760px; }
 
+  @media (max-width: 1180px) {
+    .landing .band { transform: scale(.55); transform-origin: top right; }
+  }
   @media (max-width: 760px) {
     .app { grid-template-columns: 1fr; grid-template-rows: 45vh minmax(0, 1fr); }
     aside { order: 2; border-right: 0; border-top: 1px solid var(--ink-line); }
