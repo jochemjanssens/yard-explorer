@@ -66,6 +66,29 @@
   table.changes td:not(:first-child) { text-align: right; }
   .delta { color: var(--change); font-weight: 600; padding-left: 8px; }
   .delta.none { color: var(--muted); font-weight: 400; }
+  .landing { position: fixed; inset: 0; z-index: 1500; overflow-y: auto; background: var(--bg); }
+  .landing[hidden] { display: none; }
+  .landing .wrap { max-width: 880px; margin: 0 auto; padding: 56px 16px 48px; }
+  .landing .eyebrow { color: var(--route); font-weight: 600; font-size: 13px; letter-spacing: .04em; text-transform: uppercase; }
+  .landing h2 { font-size: clamp(30px, 5vw, 44px); line-height: 1.1; margin: 10px 0 14px; letter-spacing: -.02em; }
+  .landing .lead { font-size: 17px; color: var(--muted); max-width: 620px; margin: 0; }
+  .landing .cta { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; margin: 28px 0 44px; }
+  .landing .cta .btn { padding: 11px 18px; font-size: 15px; border-radius: 10px; }
+  .landing .cta .hint { color: var(--muted); font-size: 13px; }
+  .landing .cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 14px; }
+  .landing .card { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 18px; }
+  .landing .card h3 { margin: 10px 0 6px; font-size: 16px; }
+  .landing .card p { margin: 0; color: var(--muted); font-size: 14px; }
+  .landing .swatch { display: grid; grid-template-columns: repeat(4, 10px); gap: 2px; }
+  .landing .swatch i { width: 10px; height: 10px; border-radius: 2px; background: var(--line); }
+  .landing h4 { margin: 40px 0 10px; font-size: 15px; }
+  .landing ol.steps { list-style: decimal; padding-left: 20px; margin: 0; overflow: visible; color: var(--text); }
+  .landing ol.steps li { display: list-item; padding: 3px 0; cursor: default; }
+  .landing ol.steps li:hover { background: none; }
+  .landing .note { margin-top: 28px; padding: 14px 16px; border-radius: 12px; background: var(--panel); border: 1px solid var(--line);
+    color: var(--muted); font-size: 13px; }
+  .landing a { color: var(--route); }
+  .about { margin-left: 8px; color: var(--muted); cursor: pointer; text-decoration: underline; }
   @media (max-width: 720px) {
     .app { grid-template-columns: 1fr; grid-template-rows: 45vh minmax(0, 1fr); }
     aside { order: 2; border-right: 0; border-top: 1px solid var(--line); overflow-y: auto; }
@@ -83,7 +106,8 @@
         <button data-layer="squadratinhos" class="active">Yardinhos</button>
         <button data-layer="squadrats">Yards</button>
       </div>
-      <div class="file"><label>Open KML<input type="file" id="file" accept=".kml"></label> or drop one on the page</div>
+      <div class="file"><label>Open KML<input type="file" id="file" accept=".kml"></label> or drop one on the page
+        <span class="about" id="aboutLink">About</span></div>
     </header>
     <details class="plan" id="changesPanel" open hidden>
       <summary>Latest changes</summary>
@@ -120,6 +144,36 @@
   </aside>
   <div id="map"></div>
 </div>
+<section class="landing" id="landing" hidden>
+  <div class="wrap">
+    <div class="eyebrow">For Squadrats players</div>
+    <h2>Yard Explorer</h2>
+    <p class="lead">See all your Yards and Yardinhos ranked, not just the biggest. Find out what your last ride added,
+      and plan road-bike loops that pick up as many new tiles as possible.</p>
+    <div class="cta">
+      <label class="btn primary">Open your KML<input type="file" id="landingFile" accept=".kml" hidden></label>
+      <button class="btn" id="closeLanding" hidden>Back to map</button>
+      <span class="hint">or drop the file anywhere on this page</span>
+    </div>
+    <div class="cards">
+      <div class="card"><div class="swatch"><i style="background:var(--first)"></i><i style="background:var(--first)"></i><i></i><i></i><i style="background:var(--first)"></i><i style="background:var(--first)"></i><i style="background:var(--second)"></i><i></i><i></i><i style="background:var(--other)"></i><i style="background:var(--second)"></i><i style="background:var(--second)"></i><i></i><i style="background:var(--other)"></i><i></i><i></i></div><h3>Every Yard, ranked</h3>
+        <p>Squadrats only shows your largest Yard and Yardinho. Here you see them all, ranked by size. Click one to zoom in.</p></div>
+      <div class="card"><div class="swatch"><i style="background:var(--visited)"></i><i style="background:var(--visited)"></i><i style="background:var(--change)"></i><i></i><i style="background:var(--visited)"></i><i style="background:var(--change)"></i><i style="background:var(--change)"></i><i></i><i style="background:var(--visited)"></i><i style="background:var(--visited)"></i><i></i><i></i><i></i><i></i><i></i><i></i></div><h3>What your last ride changed</h3>
+        <p>Drop a new export and see the tiles you added, plus how your Yard, Yardinho and Übersquadrat grew.</p></div>
+      <div class="card"><div class="swatch"><i style="background:var(--route)"></i><i style="background:var(--route)"></i><i style="background:var(--route)"></i><i style="background:var(--route)"></i><i style="background:var(--route)"></i><i style="background:var(--new)"></i><i style="background:var(--new)"></i><i style="background:var(--route)"></i><i style="background:var(--route)"></i><i style="background:var(--new)"></i><i style="background:var(--new)"></i><i style="background:var(--route)"></i><i style="background:var(--route)"></i><i style="background:var(--route)"></i><i style="background:var(--route)"></i><i style="background:var(--route)"></i></div><h3>New-tile route planner</h3>
+        <p>Pick a start and a distance. Get a loop on road-bike roads that crosses as many new tiles as possible, as a GPX file.</p></div>
+    </div>
+    <h4>Getting your KML</h4>
+    <ol class="steps">
+      <li>Sign in at <a href="https://squadrats.com" target="_blank" rel="noopener">squadrats.com</a> and open your map.</li>
+      <li>Download the KML export from the panel on the right of the map.</li>
+      <li>Drop it here. After your next ride, export again and drop the new file to see what changed.</li>
+    </ol>
+    <div class="note"><strong>Your data stays with you.</strong> The KML is read in your browser and never uploaded; your browser keeps
+      your last two exports so it can compare them. Route planning sends only the start point and waypoints to the public
+      <a href="https://brouter.de" target="_blank" rel="noopener">BRouter</a> server. Not affiliated with Squadrats.</div>
+  </div>
+</section>
 <div class="drop" id="drop">Drop your Squadrats KML</div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
@@ -297,6 +351,7 @@
 
   function load(kml, previousKml = null, names = {}) {
     data = Squadrats.analyse(kml);
+    landing.hidden = true;
     prev = previousKml ? Squadrats.analyse(previousKml) : null;
     current = { kml, name: names.current || null };
     changes = computeChanges(names.previous, names.current);
@@ -450,7 +505,10 @@
   // Save a dropped export (into exports/ locally, or the browser otherwise), then compare.
   async function openFile(file) {
     const text = await file.text();
-    const name = file.name.replace(/[^\w.-]+/g, "-");
+    // Name it by date (squadrats-YYYY-MM-DD.kml), falling back to when the file was downloaded.
+    const d = new Date(file.lastModified || Date.now());
+    const day = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+    const name = /\d{4}-\d{2}-\d{2}/.test(file.name) ? file.name.replace(/[^\w.-]+/g, "-") : `squadrats-${day}.kml`;
     const saved = await fetch("exports/" + encodeURIComponent(name), { method: "PUT", body: text })
       .then((r) => r.ok).catch(() => false);
     if (saved && (await loadExports())) return;
@@ -458,7 +516,16 @@
     load(s.latest.kml, s.previous?.kml, { current: s.latest.name, previous: s.previous?.name });
   }
 
-  loadExports().then((ok) => ok || loadStored());
+  // Landing page: shown until an export is loaded, and from the "About" link.
+  const landing = $("landing");
+  $("landingFile").onchange = (e) => e.target.files[0] && openFile(e.target.files[0]);
+  $("aboutLink").onclick = () => {
+    $("closeLanding").hidden = !data;
+    landing.hidden = false;
+  };
+  $("closeLanding").onclick = () => (landing.hidden = true);
+
+  loadExports().then((ok) => ok || loadStored()).then((ok) => (landing.hidden = !!ok));
 </script>
 </body>
 </html>
