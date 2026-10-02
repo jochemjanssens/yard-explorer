@@ -1,0 +1,464 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Yard Explorer</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
+<style>
+  :root {
+    --bg: #f6f6f4; --panel: #ffffff; --text: #1d1d1f; --muted: #6b6b70; --line: #e3e3e0;
+    --first: #e0a100; --second: #d6336c; --other: #3b82f6; --visited: #7c3aed; --route: #059669; --new: #10b981; --change: #f97316;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg: #161618; --panel: #1f1f22; --text: #ececee; --muted: #9a9aa0; --line: #2e2e33; }
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; background: var(--bg); color: var(--text);
+    font: 14px/1.4 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+  .app { display: grid; grid-template-columns: 320px 1fr; height: 100%; }
+  aside { background: var(--panel); border-right: 1px solid var(--line); display: flex; flex-direction: column; min-height: 0; overflow-y: auto; }
+  aside > * { flex: none; }
+  aside > ol { flex: 1 0 200px; }
+  header { padding: 16px 16px 12px; border-bottom: 1px solid var(--line); }
+  h1 { font-size: 17px; margin: 0 0 4px; }
+  .sub { color: var(--muted); font-size: 12px; }
+  .tabs { display: flex; gap: 6px; margin-top: 12px; }
+  .tabs button { flex: 1; padding: 7px; border: 1px solid var(--line); background: transparent; color: var(--text);
+    border-radius: 8px; cursor: pointer; font: inherit; }
+  .tabs button.active { background: var(--text); color: var(--panel); border-color: var(--text); }
+  .file { margin-top: 10px; font-size: 12px; color: var(--muted); }
+  .file label { color: var(--other); cursor: pointer; text-decoration: underline; }
+  .file input { display: none; }
+  .opts { padding: 8px 16px; border-bottom: 1px solid var(--line); font-size: 12px; color: var(--muted); }
+  ol { list-style: none; margin: 0; padding: 6px 8px; overflow-y: auto; flex: 1; }
+  li { display: flex; align-items: center; gap: 10px; padding: 8px; border-radius: 8px; cursor: pointer; }
+  li:hover { background: var(--bg); }
+  li.selected { background: var(--bg); outline: 1px solid var(--line); }
+  .rank { width: 28px; color: var(--muted); font-variant-numeric: tabular-nums; }
+  .dot { width: 12px; height: 12px; border-radius: 3px; flex: none; }
+  .size { margin-left: auto; font-weight: 600; font-variant-numeric: tabular-nums; }
+  .label { color: var(--muted); font-size: 12px; }
+  #map { height: 100%; }
+  .drop { position: fixed; inset: 0; background: rgba(59,130,246,.15); border: 3px dashed var(--other);
+    display: none; align-items: center; justify-content: center; font-size: 20px; z-index: 2000; }
+  .drop.show { display: flex; }
+  .empty { padding: 24px 16px; color: var(--muted); }
+  details.plan { border-bottom: 1px solid var(--line); padding: 10px 16px 12px; }
+  details.plan summary { font-weight: 600; cursor: pointer; }
+  .form { display: grid; grid-template-columns: 90px 1fr; gap: 8px 10px; align-items: center; margin-top: 10px; font-size: 13px; }
+  .form input, .form select { width: 100%; padding: 6px 8px; border: 1px solid var(--line); border-radius: 6px;
+    background: var(--bg); color: var(--text); font: inherit; }
+  .btn { padding: 7px 12px; border: 1px solid var(--line); border-radius: 8px; background: transparent; color: var(--text);
+    cursor: pointer; font: inherit; }
+  .btn.primary { background: var(--route); border-color: var(--route); color: #fff; }
+  .btn:disabled { opacity: .5; cursor: default; }
+  .btn.picking { outline: 2px solid var(--route); }
+  .actions { display: flex; gap: 8px; margin-top: 10px; }
+  .status { font-size: 12px; color: var(--muted); margin-top: 8px; min-height: 1em; }
+  .routes { list-style: none; padding: 0; margin: 8px 0 0; }
+  .routes li { padding: 6px 8px; font-size: 13px; }
+  .routes .size { font-weight: 600; }
+  .routes .rank { width: 40px; white-space: nowrap; }
+  .leaflet-container.pick { cursor: crosshair; }
+  table.changes { width: 100%; border-collapse: collapse; margin-top: 8px; font-size: 13px; font-variant-numeric: tabular-nums; }
+  table.changes td { padding: 3px 0; }
+  table.changes td:not(:first-child) { text-align: right; }
+  .delta { color: var(--change); font-weight: 600; padding-left: 8px; }
+  .delta.none { color: var(--muted); font-weight: 400; }
+  @media (max-width: 720px) {
+    .app { grid-template-columns: 1fr; grid-template-rows: 45vh minmax(0, 1fr); }
+    aside { order: 2; border-right: 0; border-top: 1px solid var(--line); overflow-y: auto; }
+    ol { flex: none; overflow: visible; }
+  }
+</style>
+</head>
+<body>
+<div class="app">
+  <aside>
+    <header>
+      <h1>Yard Explorer</h1>
+      <div class="sub" id="summary">Load a Squadrats KML export to begin.</div>
+      <div class="tabs">
+        <button data-layer="squadratinhos" class="active">Yardinhos</button>
+        <button data-layer="squadrats">Yards</button>
+      </div>
+      <div class="file"><label>Open KML<input type="file" id="file" accept=".kml"></label> or drop one on the page</div>
+    </header>
+    <details class="plan" id="changesPanel" open hidden>
+      <summary>Latest changes</summary>
+      <div class="status" id="changesInfo"></div>
+      <table class="changes" id="changesTable"></table>
+      <div class="actions">
+        <label class="status"><input type="checkbox" id="showNew" checked> Highlight new tiles</label>
+        <button class="btn" id="zoomNew" style="margin-left:auto">Zoom to new tiles</button>
+      </div>
+    </details>
+    <details class="plan" open>
+      <summary>Plan a route</summary>
+      <div class="form">
+        <span>Start</span><button class="btn" id="pickStart">Click to set on map</button>
+        <label for="distance">Distance</label><input id="distance" type="number" min="10" max="250" step="5" value="60">
+        <label for="target">New tiles</label>
+        <select id="target"><option value="squadrats">Squadrats</option><option value="squadratinhos">Squadratinhos</option></select>
+        <label for="profile">Roads</label>
+        <select id="profile">
+          <option value="fastbike">Road bike</option>
+          <option value="fastbike-lowtraffic">Road bike, quieter roads</option>
+          <option value="fastbike-verylowtraffic">Road bike, quietest roads</option>
+        </select>
+      </div>
+      <div class="actions">
+        <button class="btn primary" id="planBtn" disabled>Plan route</button>
+        <button class="btn" id="gpxBtn" disabled>Download GPX</button>
+      </div>
+      <div class="status" id="planStatus">Set a start point, then plan. Distance in km.</div>
+      <ul class="routes" id="routes"></ul>
+    </details>
+    <div class="opts"><label><input type="checkbox" id="showVisited" checked> Show visited tiles</label></div>
+    <ol id="list"><div class="empty">No data loaded.</div></ol>
+  </aside>
+  <div id="map"></div>
+</div>
+<div class="drop" id="drop">Drop your Squadrats KML</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<script src="squadrats.js"></script>
+<script src="planner.js"></script>
+<script>
+  const css = (v) => getComputedStyle(document.documentElement).getPropertyValue(v).trim();
+  const $ = (id) => document.getElementById(id);
+  const map = L.map("map", { preferCanvas: true }).setView([51.0, 4.4], 10);
+  L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
+    maxZoom: 19, attribution: "&copy; OpenStreetMap contributors",
+  }).addTo(map);
+
+  let data = null, layer = "squadratinhos", selected = null;
+  let visitedLayer = L.layerGroup().addTo(map), yardLayer = L.layerGroup().addTo(map);
+  const changesLayer = L.layerGroup().addTo(map);
+  let prev = null, changes = null, current = { kml: null, name: null }, changeFocus = false;
+
+  const colorFor = (i) => (i === 0 ? css("--first") : i === 1 ? css("--second") : css("--other"));
+
+  function tileBounds(k, z) {
+    const [x, y] = k.split(",").map(Number);
+    return [[Squadrats.tileToLat(y + 1, z), Squadrats.tileToLon(x, z)], [Squadrats.tileToLat(y, z), Squadrats.tileToLon(x + 1, z)]];
+  }
+
+  function yardBounds(tiles, z) {
+    return L.latLngBounds(tiles.flatMap((k) => tileBounds(k, z)));
+  }
+
+  // Only show yards within this distance of the best yard, so far-away trips don't clutter the view.
+  const REGION_KM = 25;
+  const FOCUS_YARDS = 6;
+
+  // The focus region: the best yard plus every yard whose centre lies within REGION_KM of it.
+  function region() {
+    const { zoom, yards } = data[layer];
+    if (!yards.length) return null;
+    const home = yardBounds(yards[0], zoom).getCenter();
+    const inRegion = yards.map((tiles, i) => ({ tiles, i, bounds: yardBounds(tiles, zoom) }))
+      .filter((y) => home.distanceTo(y.bounds.getCenter()) <= REGION_KM * 1000);
+    const union = (ys) => ys.reduce((b, y) => b.extend(y.bounds), L.latLngBounds(ys[0].bounds));
+    // Frame the view on the biggest few yards; allow panning over the whole region.
+    return { yards: inRegion, view: union(inRegion.slice(0, FOCUS_YARDS)).pad(0.05), bounds: union(inRegion).pad(0.1) };
+  }
+
+  function render() {
+    visitedLayer.clearLayers();
+    yardLayer.clearLayers();
+    const list = document.getElementById("list");
+    if (!data || !data[layer]) return;
+    const { zoom, visited, yards } = data[layer];
+    const reg = region();
+    if (!reg) return;
+
+    if (document.getElementById("showVisited").checked) {
+      for (const k of visited) {
+        const b = tileBounds(k, zoom);
+        if (!reg.bounds.contains(b[0])) continue;
+        L.rectangle(b, { stroke: false, fillColor: css("--visited"), fillOpacity: 0.15, interactive: false }).addTo(visitedLayer);
+      }
+    }
+    for (const { tiles, i } of reg.yards) {
+      const isSel = selected === i;
+      for (const k of tiles) {
+        L.rectangle(tileBounds(k, zoom), {
+          weight: isSel ? 1 : 0, color: "#000", fillColor: colorFor(i),
+          fillOpacity: selected === null || isSel ? 0.65 : 0.3,
+        }).on("click", () => select(i)).bindTooltip(`#${i + 1} · ${tiles.length} tiles`).addTo(yardLayer);
+      }
+    }
+
+    const name = layer === "squadratinhos" ? "Yardinho" : "Yard";
+    list.innerHTML = "";
+    for (const { tiles, i } of reg.yards) {
+      const li = document.createElement("li");
+      if (selected === i) li.className = "selected";
+      const tag = i === 0 ? "best" : i === 1 ? "second best" : "";
+      li.innerHTML = `<span class="rank">#${i + 1}</span><span class="dot" style="background:${colorFor(i)}"></span>
+        <span>${name} <span class="label">${tag}</span></span><span class="size">${tiles.length}</span>`;
+      li.onclick = () => select(i);
+      list.appendChild(li);
+    }
+
+    const r = data.reported;
+    const reportedYard = layer === "squadratinhos" ? r.yardinho : r.yard;
+    const check = reportedYard === yards[0].length ? "✓ matches Squadrats" : `Squadrats reports ${reportedYard}`;
+    drawChanges();
+    document.getElementById("summary").textContent =
+      `${reg.yards.length} of ${yards.length} ${name.toLowerCase()}s within ${REGION_KM} km of your best · largest ${yards[0].length} (${check})`;
+  }
+
+  function select(i) {
+    if (picking) return; // the click is setting the route start instead
+    selected = selected === i ? null : i;
+    render();
+    if (selected !== null) map.fitBounds(yardBounds(data[layer].yards[i], data[layer].zoom), { padding: [60, 60], maxZoom: 16 });
+  }
+
+  // Lock the map to the focus region so you can't wander off to the rest of the world.
+  function lockView() {
+    const reg = region();
+    if (!reg) return;
+    const allowed = L.latLngBounds(reg.bounds.getSouthWest(), reg.bounds.getNorthEast());
+    if (routeLine) allowed.extend(routeLine.getBounds().pad(0.1));
+    if (changeFocus && changes?.bounds[layer]) allowed.extend(changes.bounds[layer].pad(0.1));
+    map.setMinZoom(0).setMaxBounds(null);
+    map.setMinZoom(map.getBoundsZoom(allowed)).setMaxBounds(allowed.pad(0.2));
+  }
+
+  function focusRegion() {
+    const reg = region();
+    if (!reg) return;
+    lockView();
+    map.fitBounds(reg.view, { animate: false });
+  }
+
+  // ---- Changes between the two most recent exports ----
+  const exportDate = (name) => {
+    const m = (name || "").match(/(\d{4})-(\d{2})-(\d{2})/);
+    return m ? new Date(+m[1], m[2] - 1, +m[3]).toLocaleDateString(undefined, { day: "numeric", month: "short" }) : name;
+  };
+
+  function computeChanges(prevName, curName) {
+    if (!prev) return null;
+    const newTiles = {}, bounds = {};
+    for (const l of ["squadrats", "squadratinhos"]) {
+      newTiles[l] = [...data[l].visited].filter((k) => !prev[l].visited.has(k));
+      bounds[l] = newTiles[l].length ? yardBounds(newTiles[l], data[l].zoom) : null;
+    }
+    return { newTiles, bounds, prevName, curName };
+  }
+
+  function renderChanges() {
+    const panel = $("changesPanel");
+    panel.hidden = false;
+    if (!changes) {
+      $("changesInfo").textContent = "Drop a newer Squadrats export on the page to see what your latest activity changed.";
+      $("changesTable").innerHTML = "";
+      $("zoomNew").disabled = true;
+      return;
+    }
+    const total = changes.newTiles.squadrats.length + changes.newTiles.squadratinhos.length;
+    $("changesInfo").textContent = total
+      ? `What changed between your ${exportDate(changes.prevName)} and ${exportDate(changes.curName)} exports.`
+      : `No new tiles between your ${exportDate(changes.prevName)} and ${exportDate(changes.curName)} exports.`;
+    const rows = [
+      ["Squadrats", "squadrats"], ["Squadratinhos", "squadratinhos"], ["Yard", "yard"],
+      ["Yardinho", "yardinho"], ["Übersquadrat", "ubersquadrat"], ["Übersquadratinho", "ubersquadratinho"],
+    ];
+    $("changesTable").innerHTML = rows.map(([label, k]) => {
+      const before = prev.reported[k] ?? 0, after = data.reported[k] ?? 0, d = after - before;
+      return `<tr><td>${label}</td><td>${before.toLocaleString()} → ${after.toLocaleString()}</td>
+        <td class="delta ${d ? "" : "none"}">${d > 0 ? "+" : ""}${d || "–"}</td></tr>`;
+    }).join("");
+    $("zoomNew").disabled = !changes.bounds[layer];
+  }
+
+  function drawChanges() {
+    changesLayer.clearLayers();
+    if (!changes || !$("showNew").checked) return;
+    const z = data[layer].zoom;
+    for (const k of changes.newTiles[layer]) {
+      L.rectangle(tileBounds(k, z), { color: css("--change"), weight: 1, fillColor: css("--change"), fillOpacity: 0.6, interactive: false }).addTo(changesLayer);
+    }
+    $("zoomNew").disabled = !changes.bounds[layer];
+  }
+
+  $("showNew").onchange = drawChanges;
+  $("zoomNew").onclick = () => {
+    if (!changes?.bounds[layer]) return;
+    changeFocus = true; // new tiles may lie outside the home region
+    lockView();
+    map.fitBounds(changes.bounds[layer], { padding: [60, 60], maxZoom: 15 });
+  };
+
+  function load(kml, previousKml = null, names = {}) {
+    data = Squadrats.analyse(kml);
+    prev = previousKml ? Squadrats.analyse(previousKml) : null;
+    current = { kml, name: names.current || null };
+    changes = computeChanges(names.previous, names.current);
+    changeFocus = false;
+    selected = null;
+    renderChanges();
+    render();
+    focusRegion();
+    $("planBtn").disabled = !start;
+  }
+
+  document.querySelectorAll(".tabs button").forEach((b) => (b.onclick = () => {
+    document.querySelectorAll(".tabs button").forEach((x) => x.classList.toggle("active", x === b));
+    layer = b.dataset.layer;
+    selected = null;
+    render();
+    focusRegion();
+  }));
+  document.getElementById("showVisited").onchange = render;
+  document.getElementById("file").onchange = (e) => e.target.files[0] && openFile(e.target.files[0]);
+
+  // ---- Route planner ----
+  const routeLayer = L.layerGroup().addTo(map);
+  let start = null, startMarker = null, picking = false, routes = [], shownRoute = null, routeLine = null;
+
+  function setStart(latlng) {
+    start = [latlng.lat, latlng.lng];
+    if (!startMarker) {
+      startMarker = L.marker(latlng, { draggable: true, title: "Start" }).addTo(map)
+        .on("dragend", (e) => setStart(e.target.getLatLng()));
+    } else startMarker.setLatLng(latlng);
+    $("pickStart").textContent = `${start[0].toFixed(4)}, ${start[1].toFixed(4)}`;
+    $("planBtn").disabled = !data;
+  }
+
+  function setPicking(on) {
+    picking = on;
+    $("pickStart").classList.toggle("picking", on);
+    map.getContainer().classList.toggle("pick", on);
+    if (on) $("pickStart").textContent = "Click the map…";
+  }
+
+  $("pickStart").onclick = () => setPicking(!picking);
+  map.on("click", (e) => {
+    if (!picking) return;
+    setPicking(false);
+    setStart(e.latlng);
+  });
+
+  function showRoute(i) {
+    shownRoute = i;
+    const r = routes[i], target = $("target").value, z = data[target].zoom;
+    routeLayer.clearLayers();
+    for (const k of r.newTiles[target]) {
+      L.rectangle(tileBounds(k, z), { weight: 0, fillColor: css("--new"), fillOpacity: 0.45, interactive: false }).addTo(routeLayer);
+    }
+    routeLine = L.polyline(r.coords, { color: css("--route"), weight: 4, opacity: 0.9 }).addTo(routeLayer);
+    lockView();
+    map.fitBounds(routeLine.getBounds(), { padding: [30, 30] });
+    renderRoutes();
+    $("gpxBtn").disabled = false;
+  }
+
+  function renderRoutes() {
+    const list = $("routes"), target = $("target").value;
+    const label = target === "squadrats" ? "new squadrats" : "new squadratinhos";
+    list.innerHTML = "";
+    routes.forEach((r, i) => {
+      const li = document.createElement("li");
+      if (i === shownRoute) li.className = "selected";
+      li.innerHTML = `<span class="rank">${i === 0 ? "Best" : "Alt " + i}</span>
+        <span>${(r.length / 1000).toFixed(1)} km · ↑${r.ascend} m</span>
+        <span class="size">${r.newTiles[target].length} <span class="label">${label}</span></span>`;
+      li.onclick = () => showRoute(i);
+      list.appendChild(li);
+    });
+  }
+
+  $("planBtn").onclick = async () => {
+    const distanceKm = Number($("distance").value);
+    if (!start || !(distanceKm >= 10)) return;
+    $("planBtn").disabled = true;
+    routes = [];
+    renderRoutes();
+    try {
+      routes = await Planner.plan({
+        start, distanceKm, data, target: $("target").value, profile: $("profile").value,
+        onProgress: (m) => ($("planStatus").textContent = m),
+      });
+      $("planStatus").textContent = `Found ${routes.length} loops. Click one to show it.`;
+      showRoute(0);
+    } catch (e) {
+      $("planStatus").textContent = `Could not plan a route: ${e.message}`;
+    } finally {
+      $("planBtn").disabled = false;
+    }
+  };
+
+  $("target").onchange = () => shownRoute !== null && showRoute(shownRoute);
+
+  $("gpxBtn").onclick = () => {
+    const r = routes[shownRoute];
+    if (!r) return;
+    const name = `Squadrats loop ${(r.length / 1000).toFixed(0)} km`;
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(new Blob([Planner.toGpx(r.coords, name)], { type: "application/gpx+xml" }));
+    a.download = name.replace(/\s+/g, "-").toLowerCase() + ".gpx";
+    a.click();
+    URL.revokeObjectURL(a.href);
+  };
+
+  const drop = document.getElementById("drop");
+  addEventListener("dragover", (e) => { e.preventDefault(); drop.classList.add("show"); });
+  addEventListener("dragleave", (e) => { if (!e.relatedTarget) drop.classList.remove("show"); });
+  addEventListener("drop", (e) => {
+    e.preventDefault();
+    drop.classList.remove("show");
+    if (e.dataTransfer.files[0]) openFile(e.dataTransfer.files[0]);
+  });
+
+  // Without the local server (e.g. on GitHub Pages) the browser remembers the last two exports instead.
+  const STORE = "yard-explorer-exports";
+  const stored = () => { try { return JSON.parse(localStorage.getItem(STORE)) || {}; } catch { return {}; } };
+
+  function remember(name, kml) {
+    const s = stored();
+    if (s.latest?.kml === kml) return s;
+    const next = { previous: s.latest || null, latest: { name, kml } };
+    try { localStorage.setItem(STORE, JSON.stringify(next)); } catch { /* storage full or blocked */ }
+    return next;
+  }
+
+  // Load the newest export from exports/ and compare it with the one before.
+  async function loadExports() {
+    const names = await fetch("exports.json").then((r) => (r.ok ? r.json() : [])).catch(() => []);
+    if (!names.length) return false;
+    const [curName, prevName] = [names.at(-1), names.at(-2)];
+    const get = (n) => (n ? fetch("exports/" + encodeURIComponent(n)).then((r) => r.text()) : null);
+    const [cur, prv] = await Promise.all([get(curName), get(prevName)]);
+    load(cur, prv, { current: curName, previous: prevName });
+    return true;
+  }
+
+  function loadStored() {
+    const s = stored();
+    if (!s.latest) return false;
+    load(s.latest.kml, s.previous?.kml, { current: s.latest.name, previous: s.previous?.name });
+    return true;
+  }
+
+  // Save a dropped export (into exports/ locally, or the browser otherwise), then compare.
+  async function openFile(file) {
+    const text = await file.text();
+    const name = file.name.replace(/[^\w.-]+/g, "-");
+    const saved = await fetch("exports/" + encodeURIComponent(name), { method: "PUT", body: text })
+      .then((r) => r.ok).catch(() => false);
+    if (saved && (await loadExports())) return;
+    const s = remember(name, text);
+    load(s.latest.kml, s.previous?.kml, { current: s.latest.name, previous: s.previous?.name });
+  }
+
+  loadExports().then((ok) => ok || loadStored());
+</script>
+</body>
+</html>

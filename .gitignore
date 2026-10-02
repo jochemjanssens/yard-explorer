@@ -1,0 +1,6 @@
+# Personal Squadrats exports reveal where you ride; keep them out of the public repo.
+exports/
+*.kml
+*.gpx
+.claude/
+.DS_Store
