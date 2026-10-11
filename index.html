@@ -11,9 +11,9 @@
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:ital,wght@0,500;0,600;0,700;0,800;1,700;1,800;1,900&family=Barlow:wght@400;500;600&display=swap">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
 <style>
-  /* Jersey palette: yellow = leader, red = runner-up, blue = third, green = new tiles, pink = planned route. */
+  /* Jersey palette: top 5 = yellow, red, blue, orange, violet; green = new tiles; pink = planned route. */
   :root {
-    --yellow: #ffd400; --red: #e4002b; --blue: #1f5bff; --green: #00a651; --pink: #ff2d8a; --steel: #3d4450;
+    --yellow: #ffd400; --red: #e4002b; --blue: #1f5bff; --orange: #ff7a00; --violet: #8b3dff; --green: #00a651; --pink: #ff2d8a; --steel: #3d4450;
     --ink: #0d0e10; --ink-2: #16181b; --ink-3: #22252a; --ink-line: #2e3238;
     --chalk: #f4f2ec; --chalk-muted: #8d929b;
     --paper: #f3f1ea; --paper-2: #e8e5db; --paper-text: #0d0e10; --paper-muted: #5c6068; --paper-line: #d3cfc2;
@@ -330,8 +330,9 @@
   const changesLayer = L.layerGroup().addTo(map);
   let prev = null, changes = null, current = { kml: null, name: null }, changeFocus = false;
 
-  const PODIUM = ["--yellow", "--red", "--blue"];
-  const colorFor = (i) => css(PODIUM[i] || "--steel");
+  // The top 5 each get their own colour and are always shown, even far from home.
+  const TOP = ["--yellow", "--red", "--blue", "--orange", "--violet"];
+  const colorFor = (i) => css(TOP[i] || "--steel");
   const fmt = (n) => n.toLocaleString("en-US");
 
   function tileBounds(k, z) {
@@ -347,16 +348,17 @@
   const REGION_KM = 25;
   const FOCUS_YARDS = 6;
 
-  // The focus region: the best yard plus every yard whose centre lies within REGION_KM of it.
+  // The focus region: the top 5 yards plus every yard whose centre lies within REGION_KM of the best one.
   function region() {
     const { zoom, yards } = data[layer];
     if (!yards.length) return null;
     const home = yardBounds(yards[0], zoom).getCenter();
-    const inRegion = yards.map((tiles, i) => ({ tiles, i, bounds: yardBounds(tiles, zoom) }))
-      .filter((y) => home.distanceTo(y.bounds.getCenter()) <= REGION_KM * 1000);
+    const all = yards.map((tiles, i) => ({ tiles, i, bounds: yardBounds(tiles, zoom) }));
+    const nearby = all.filter((y) => home.distanceTo(y.bounds.getCenter()) <= REGION_KM * 1000);
+    const inRegion = all.filter((y) => y.i < TOP.length || nearby.includes(y));
     const union = (ys) => ys.reduce((b, y) => b.extend(y.bounds), L.latLngBounds(ys[0].bounds));
-    // Frame the view on the biggest few yards; allow panning over the whole region.
-    return { yards: inRegion, view: union(inRegion.slice(0, FOCUS_YARDS)).pad(0.05), bounds: union(inRegion).pad(0.1) };
+    // Frame the view on the biggest few yards near home; allow panning over everything shown.
+    return { yards: inRegion, view: union(nearby.slice(0, FOCUS_YARDS)).pad(0.05), bounds: union(inRegion).pad(0.1) };
   }
 
   function renderStats(name) {
@@ -388,7 +390,7 @@
       for (const k of tiles) {
         L.rectangle(tileBounds(k, zoom), {
           weight: isSel ? 1.5 : 0, color: css("--ink"), fillColor: colorFor(i),
-          fillOpacity: selected === null || isSel ? (i < PODIUM.length ? 0.85 : 0.55) : 0.25,
+          fillOpacity: selected === null || isSel ? (i < TOP.length ? 0.85 : 0.55) : 0.25,
         }).on("click", () => select(i)).bindTooltip(`P${i + 1} · ${tiles.length} tiles`).addTo(yardLayer);
       }
     }
@@ -413,7 +415,7 @@
     const check = reportedYard === leader ? "matches Squadrats ✓" : `Squadrats reports ${reportedYard}`;
     drawChanges();
     renderStats(name.toLowerCase());
-    $("summary").textContent = `${reg.yards.length} of ${yards.length} ${name.toLowerCase()}s within ${REGION_KM} km of your best · ${check}`;
+    $("summary").textContent = `${reg.yards.length} of ${yards.length} ${name.toLowerCase()}s: your top ${TOP.length} plus all within ${REGION_KM} km of your best · ${check}`;
   }
 
   function select(i) {
@@ -437,6 +439,7 @@
   function focusRegion() {
     const reg = region();
     if (!reg) return;
+    map.invalidateSize(); // the map may have been laid out before its container had a size
     lockView();
     map.fitBounds(reg.view, { animate: false });
   }
