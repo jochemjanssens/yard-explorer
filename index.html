@@ -318,8 +318,9 @@
 <div class="drop" id="drop">Drop your KML</div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
-<script src="squadrats.js"></script>
-<script src="planner.js"></script>
+<!-- Bump ?v= whenever squadrats.js or planner.js change, so browsers don't pair a new page with cached old scripts. -->
+<script src="squadrats.js?v=2026-10-25"></script>
+<script src="planner.js?v=2026-10-25"></script>
 <script>
   const css = (v) => getComputedStyle(document.documentElement).getPropertyValue(v).trim();
   const $ = (id) => document.getElementById(id);
