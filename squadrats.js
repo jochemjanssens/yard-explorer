@@ -95,6 +95,43 @@
     return yards.sort((a, b) => b.length - a.length);
   }
 
+  // Outline rings (in tile-corner coordinates) around a set of tiles, for drawing merged shapes.
+  // Boundary edges run clockwise around each tile; chaining them yields closed rings
+  // (outer edges and holes), which render correctly with the even-odd fill rule.
+  function outline(tiles) {
+    const set = tiles instanceof Set ? tiles : new Set(tiles);
+    const next = new Map(); // corner "x,y" -> list of corners an edge leads to
+    const addEdge = (x1, y1, x2, y2) => {
+      const k = key(x1, y1);
+      if (!next.has(k)) next.set(k, []);
+      next.get(k).push([x2, y2]);
+    };
+    for (const k of set) {
+      const [x, y] = k.split(",").map(Number);
+      if (!set.has(key(x, y - 1))) addEdge(x, y, x + 1, y);
+      if (!set.has(key(x + 1, y))) addEdge(x + 1, y, x + 1, y + 1);
+      if (!set.has(key(x, y + 1))) addEdge(x + 1, y + 1, x, y + 1);
+      if (!set.has(key(x - 1, y))) addEdge(x, y + 1, x, y);
+    }
+    const rings = [];
+    for (const [startKey, outs] of next) {
+      while (outs.length) {
+        const ring = [startKey.split(",").map(Number)];
+        let cur = outs.pop();
+        while (key(cur[0], cur[1]) !== startKey) {
+          ring.push(cur);
+          cur = next.get(key(cur[0], cur[1])).pop();
+        }
+        // Drop corners on straight runs so shapes stay light.
+        rings.push(ring.filter((p, i) => {
+          const a = ring[(i - 1 + ring.length) % ring.length], b = ring[(i + 1) % ring.length];
+          return (b[0] - a[0]) * (p[1] - a[1]) !== (b[1] - a[1]) * (p[0] - a[0]);
+        }));
+      }
+    }
+    return rings;
+  }
+
   function analyse(kml) {
     const placemarks = parsePlacemarks(kml);
     const result = {};
@@ -108,7 +145,7 @@
     return result;
   }
 
-  const api = { analyse, parsePlacemarks, rasterise, findYards, tileToLat, tileToLon, lonToTileX, latToTileY };
+  const api = { analyse, parsePlacemarks, rasterise, findYards, outline, tileToLat, tileToLon, lonToTileX, latToTileY };
   if (typeof module !== "undefined" && module.exports) module.exports = api;
   else root.Squadrats = api;
 })(typeof window !== "undefined" ? window : globalThis);

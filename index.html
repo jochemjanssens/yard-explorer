@@ -11,13 +11,14 @@
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:ital,wght@0,500;0,600;0,700;0,800;1,700;1,800;1,900&family=Barlow:wght@400;500;600&display=swap">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
 <style>
-  /* Jersey palette: top 5 = yellow, red, blue, orange, violet; green = new tiles; pink = planned route. */
+  /* Top 5 = yellow, red, blue, violet, teal (chosen to stay apart from each other and from OSM's colours);
+     green = new tiles; pink = planned route. */
   :root {
-    --yellow: #ffd400; --red: #e4002b; --blue: #1f5bff; --orange: #ff7a00; --violet: #8b3dff; --green: #00a651; --pink: #ff2d8a; --steel: #3d4450;
+    --yellow: #ffd400; --red: #e4002b; --blue: #0050ff; --violet: #a21fe0; --teal: #00a3a3; --green: #00a651; --pink: #ff2d8a; --steel: #3d4450;
     --ink: #0d0e10; --ink-2: #16181b; --ink-3: #22252a; --ink-line: #2e3238;
     --chalk: #f4f2ec; --chalk-muted: #8d929b;
     --paper: #f3f1ea; --paper-2: #e8e5db; --paper-text: #0d0e10; --paper-muted: #5c6068; --paper-line: #d3cfc2;
-    --visited: #0d0e10; --visited-opacity: 0.14;
+    --visited: #0d0e10; --visited-opacity: 0.1;
     --display: "Barlow Condensed", "Arial Narrow", sans-serif;
     --body: "Barlow", -apple-system, "Segoe UI", sans-serif;
   }
@@ -148,6 +149,8 @@
   .leaflet-tooltip { background: var(--ink); color: var(--chalk); border: 0; border-radius: 0; box-shadow: none;
     font: 600 13px var(--display); letter-spacing: .08em; text-transform: uppercase; }
   .leaflet-tooltip-top:before, .leaflet-tooltip-bottom:before, .leaflet-tooltip-left:before, .leaflet-tooltip-right:before { display: none; }
+  .rank-badge { width: 26px; height: 26px; display: grid; place-items: center; background: var(--ink); color: var(--chalk);
+    border: 3px solid var(--c); font: italic 800 15px/1 var(--display); box-shadow: 0 1px 4px rgba(0,0,0,.35); cursor: pointer; }
   .start-pin { width: 22px; height: 22px; background: var(--ink); border: 3px solid var(--yellow); transform: rotate(45deg); }
 
   .drop { position: fixed; inset: 0; z-index: 2000; display: none; align-items: center; justify-content: center;
@@ -331,13 +334,39 @@
   let prev = null, changes = null, current = { kml: null, name: null }, changeFocus = false;
 
   // The top 5 each get their own colour and are always shown, even far from home.
-  const TOP = ["--yellow", "--red", "--blue", "--orange", "--violet"];
+  const TOP = ["--yellow", "--red", "--blue", "--violet", "--teal"];
   const colorFor = (i) => css(TOP[i] || "--steel");
   const fmt = (n) => n.toLocaleString("en-US");
 
   function tileBounds(k, z) {
     const [x, y] = k.split(",").map(Number);
     return [[Squadrats.tileToLat(y + 1, z), Squadrats.tileToLon(x, z)], [Squadrats.tileToLat(y, z), Squadrats.tileToLon(x + 1, z)]];
+  }
+
+  // Merged outline of a set of tiles as Leaflet rings (cached, since outlines don't change).
+  const outlineCache = new WeakMap();
+  function outlineLatLngs(tiles, z) {
+    if (!outlineCache.has(tiles)) {
+      outlineCache.set(tiles, Squadrats.outline(tiles).map((ring) =>
+        ring.map(([x, y]) => [Squadrats.tileToLat(y, z), Squadrats.tileToLon(x, z)])));
+    }
+    return outlineCache.get(tiles);
+  }
+
+  // Where to put a yard's rank label: the yard tile closest to its centre, so it always sits on the yard.
+  function labelPoint(tiles, z) {
+    const pts = tiles.map((k) => k.split(",").map(Number));
+    const cx = pts.reduce((a, p) => a + p[0], 0) / pts.length, cy = pts.reduce((a, p) => a + p[1], 0) / pts.length;
+    const [x, y] = pts.reduce((best, p) => (Math.hypot(p[0] - cx, p[1] - cy) < Math.hypot(best[0] - cx, best[1] - cy) ? p : best));
+    return [Squadrats.tileToLat(y + 0.5, z), Squadrats.tileToLon(x + 0.5, z)];
+  }
+
+  // A filled shape with a dark casing under a coloured edge, readable on any part of the map.
+  function shape(latlngs, color, { weight = 2.5, fill = 0.25, opacity = 1, casing = true } = {}) {
+    const group = L.featureGroup();
+    if (casing) L.polygon(latlngs, { color: css("--ink"), weight: weight + 2.5, opacity: 0.8 * opacity, fill: false, interactive: false }).addTo(group);
+    L.polygon(latlngs, { color, weight, opacity, fillColor: color, fillOpacity: fill }).addTo(group);
+    return group;
   }
 
   function yardBounds(tiles, z) {
@@ -379,19 +408,23 @@
     if (!reg) return;
 
     if ($("showVisited").checked) {
-      for (const k of visited) {
-        const b = tileBounds(k, zoom);
-        if (!reg.bounds.contains(b[0])) continue;
-        L.rectangle(b, { stroke: false, fillColor: css("--visited"), fillOpacity: +css("--visited-opacity"), interactive: false }).addTo(visitedLayer);
-      }
+      L.polygon(outlineLatLngs(visited, zoom), {
+        color: css("--visited"), weight: 0.75, opacity: 0.2,
+        fillColor: css("--visited"), fillOpacity: +css("--visited-opacity"), interactive: false,
+      }).addTo(visitedLayer);
     }
-    for (const { tiles, i } of reg.yards) {
-      const isSel = selected === i;
-      for (const k of tiles) {
-        L.rectangle(tileBounds(k, zoom), {
-          weight: isSel ? 1.5 : 0, color: css("--ink"), fillColor: colorFor(i),
-          fillOpacity: selected === null || isSel ? (i < TOP.length ? 0.85 : 0.55) : 0.25,
-        }).on("click", () => select(i)).bindTooltip(`P${i + 1} · ${tiles.length} tiles`).addTo(yardLayer);
+    // Draw from small to big so the top yards end up on top.
+    for (const { tiles, i } of [...reg.yards].reverse()) {
+      const top = i < TOP.length, isSel = selected === i, dim = selected !== null && !isSel;
+      const s = top
+        ? shape(outlineLatLngs(tiles, zoom), colorFor(i), { weight: isSel ? 3.5 : 2.5, fill: isSel ? 0.4 : dim ? 0.08 : 0.25, opacity: dim ? 0.45 : 1 })
+        : shape(outlineLatLngs(tiles, zoom), colorFor(i), { weight: isSel ? 2.5 : 1.5, fill: isSel ? 0.35 : 0.15, opacity: dim ? 0.4 : 0.9, casing: false });
+      s.on("click", () => select(i)).bindTooltip(`P${i + 1} · ${tiles.length} tiles`, { sticky: true }).addTo(yardLayer);
+      if (top) {
+        L.marker(labelPoint(tiles, zoom), {
+          icon: L.divIcon({ className: "", html: `<div class="rank-badge" style="--c:${colorFor(i)}">${i + 1}</div>`, iconSize: [26, 26], iconAnchor: [13, 13] }),
+          zIndexOffset: 500 - i, opacity: dim ? 0.5 : 1,
+        }).on("click", () => select(i)).addTo(yardLayer);
       }
     }
 
@@ -486,8 +519,8 @@
     changesLayer.clearLayers();
     if (!changes || !$("showNew").checked) return;
     const z = data[layer].zoom;
-    for (const k of changes.newTiles[layer]) {
-      L.rectangle(tileBounds(k, z), { color: css("--ink"), weight: 1, fillColor: css("--green"), fillOpacity: 0.85, interactive: false }).addTo(changesLayer);
+    if (changes.newTiles[layer].length) {
+      shape(outlineLatLngs(changes.newTiles[layer], z), css("--green"), { weight: 2.5, fill: 0.45 }).addTo(changesLayer);
     }
     $("zoomNew").disabled = !changes.bounds[layer];
   }
@@ -558,8 +591,9 @@
     shownRoute = i;
     const r = routes[i], target = $("target").value, z = data[target].zoom;
     routeLayer.clearLayers();
-    for (const k of r.newTiles[target]) {
-      L.rectangle(tileBounds(k, z), { weight: 0, fillColor: css("--pink"), fillOpacity: 0.35, interactive: false }).addTo(routeLayer);
+    if (r.newTiles[target].length) {
+      L.polygon(outlineLatLngs(r.newTiles[target], z), { color: css("--pink"), weight: 1.5, opacity: 0.9, dashArray: "4 3",
+        fillColor: css("--pink"), fillOpacity: 0.2, interactive: false }).addTo(routeLayer);
     }
     L.polyline(r.coords, { color: "#fff", weight: 8, opacity: 0.9, interactive: false }).addTo(routeLayer);
     routeLine = L.polyline(r.coords, { color: css("--pink"), weight: 4.5, opacity: 1 }).addTo(routeLayer);
