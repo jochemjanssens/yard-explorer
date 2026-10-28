@@ -376,7 +376,7 @@
   }
 
   // Only show yards within this distance of the best yard, so far-away trips don't clutter the view.
-  const REGION_KM = 25;
+  const REGION_KM = 37.5;
   const FOCUS_YARDS = 6;
 
   // The focus region: every yard whose centre lies within REGION_KM of the best one.
@@ -477,10 +477,16 @@
     map.setMinZoom(map.getBoundsZoom(allowed)).setMaxBounds(allowed.pad(0.2));
   }
 
+  let pendingFocus = false;
+  new ResizeObserver(() => pendingFocus && focusRegion()).observe(map.getContainer());
+
   function focusRegion() {
     const reg = region();
     if (!reg) return;
     map.invalidateSize(); // the map may have been laid out before its container had a size
+    // Still no size (e.g. a tab opened in the background): frame it once the map gets one.
+    if (!map.getSize().x) return (pendingFocus = true);
+    pendingFocus = false;
     lockView();
     map.fitBounds(reg.view, { animate: false });
   }
