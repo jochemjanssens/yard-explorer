@@ -135,6 +135,7 @@
   .rider { display: flex; align-items: center; gap: 8px; font: 600 15px var(--display); letter-spacing: .06em; text-transform: uppercase; }
   .rider i { width: 14px; height: 14px; flex: none; }
   .rider em { font: 600 11px var(--display); letter-spacing: .12em; font-style: normal; padding: 1px 5px; color: var(--ink); }
+  .rider em.away { background: transparent; color: var(--chalk-muted); border: 1px solid var(--ink-line); }
   .gap { text-align: right; font-size: 12px; color: var(--chalk-muted); font-variant-numeric: tabular-nums; }
   .tiles { text-align: right; font: 700 20px var(--display); font-variant-numeric: tabular-nums; }
   ol.gc li:nth-child(1) .pos { color: var(--yellow); }
@@ -414,8 +415,10 @@
         fillColor: css("--visited"), fillOpacity: +css("--visited-opacity"), interactive: false,
       }).addTo(visitedLayer);
     }
-    // Draw from small to big so the top yards end up on top.
-    for (const { tiles, i } of [...reg.yards].reverse()) {
+    // Draw from small to big so the top yards end up on top. A selected far-away yard is drawn too.
+    const shown = reg.yards.some((y) => y.i === selected) || selected === null ? reg.yards
+      : [...reg.yards, { tiles: yards[selected], i: selected }].sort((a, b) => a.i - b.i);
+    for (const { tiles, i } of [...shown].reverse()) {
       const top = i < TOP.length, isSel = selected === i, dim = selected !== null && !isSel;
       const s = top
         ? shape(outlineLatLngs(tiles, zoom), colorFor(i), { weight: isSel ? 3.5 : 2.5, fill: isSel ? 0.4 : dim ? 0.08 : 0.25, opacity: dim ? 0.45 : 1 })
@@ -433,29 +436,32 @@
     $("gcName").textContent = name;
     const leader = yards[0].length;
     list.innerHTML = "";
-    for (const { tiles, i } of reg.yards) {
+    const home = new Set(reg.yards.map((y) => y.i));
+    yards.forEach((tiles, i) => {
       const li = document.createElement("li");
       if (selected === i) li.className = "selected";
-      const badge = i === 0 ? `<em style="background:var(--yellow)">Leader</em>` : "";
+      const badge = i === 0 ? `<em style="background:var(--yellow)">Leader</em>`
+        : home.has(i) ? "" : `<em class="away" title="More than ${REGION_KM} km from your best ${name.toLowerCase()}">Away</em>`;
       li.innerHTML = `<span class="pos">${i + 1}</span>
         <span class="rider"><i style="background:${colorFor(i)}"></i>${name}${badge}</span>
         <span class="gap">${i === 0 ? "—" : "+" + fmt(leader - tiles.length)}</span>
         <span class="tiles">${fmt(tiles.length)}</span>`;
       li.onclick = () => select(i);
       list.appendChild(li);
-    }
+    });
 
     const reportedYard = layer === "squadratinhos" ? data.reported.yardinho : data.reported.yard;
     const check = reportedYard === leader ? "matches Squadrats ✓" : `Squadrats reports ${reportedYard}`;
     drawChanges();
     renderStats(name.toLowerCase());
-    $("summary").textContent = `${reg.yards.length} of ${yards.length} ${name.toLowerCase()}s: your top ${TOP.length} plus all within ${REGION_KM} km of your best · ${check}`;
+    $("summary").textContent = `${yards.length} ${name.toLowerCase()}s · the map shows your top ${TOP.length} and all within ${REGION_KM} km of your best · ${check}`;
   }
 
   function select(i) {
     if (picking) return; // the click is setting the route start instead
     selected = selected === i ? null : i;
     render();
+    lockView();
     if (selected !== null) map.fitBounds(yardBounds(data[layer].yards[i], data[layer].zoom), { padding: [60, 60], maxZoom: 16 });
   }
 
@@ -466,6 +472,7 @@
     const allowed = L.latLngBounds(reg.bounds.getSouthWest(), reg.bounds.getNorthEast());
     if (routeLine) allowed.extend(routeLine.getBounds().pad(0.1));
     if (changeFocus && changes?.bounds[layer]) allowed.extend(changes.bounds[layer].pad(0.1));
+    if (selected !== null) allowed.extend(yardBounds(data[layer].yards[selected], data[layer].zoom).pad(0.5));
     map.setMinZoom(0).setMaxBounds(null);
     map.setMinZoom(map.getBoundsZoom(allowed)).setMaxBounds(allowed.pad(0.2));
   }
