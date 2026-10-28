@@ -385,7 +385,7 @@
     if (!yards.length) return null;
     const home = yardBounds(yards[0], zoom).getCenter();
     const all = yards.map((tiles, i) => ({ tiles, i, bounds: yardBounds(tiles, zoom) }));
-    // Far-away yards are tagged "Away" in the standings and drawn only when selected.
+    // Yards outside it are still drawn, and tagged "Away" in the standings.
     const nearby = all.filter((y) => home.distanceTo(y.bounds.getCenter()) <= REGION_KM * 1000);
     const union = (ys) => ys.reduce((b, y) => b.extend(y.bounds), L.latLngBounds(ys[0].bounds));
     // Frame the view on the biggest few yards; allow panning over the whole region.
@@ -415,10 +415,9 @@
         fillColor: css("--visited"), fillOpacity: +css("--visited-opacity"), interactive: false,
       }).addTo(visitedLayer);
     }
-    // Draw from small to big so the top yards end up on top. A selected far-away yard is drawn too.
-    const shown = reg.yards.some((y) => y.i === selected) || selected === null ? reg.yards
-      : [...reg.yards, { tiles: yards[selected], i: selected }].sort((a, b) => a.i - b.i);
-    for (const { tiles, i } of [...shown].reverse()) {
+    // Every yard is drawn, wherever it is; small to big so the top yards end up on top.
+    for (let i = yards.length - 1; i >= 0; i--) {
+      const tiles = yards[i];
       const top = i < TOP.length, isSel = selected === i, dim = selected !== null && !isSel;
       const s = top
         ? shape(outlineLatLngs(tiles, zoom), colorFor(i), { weight: isSel ? 3.5 : 2.5, fill: isSel ? 0.4 : dim ? 0.08 : 0.25, opacity: dim ? 0.45 : 1 })
@@ -454,7 +453,7 @@
     const check = reportedYard === leader ? "matches Squadrats ✓" : `Squadrats reports ${reportedYard}`;
     drawChanges();
     renderStats(name.toLowerCase());
-    $("summary").textContent = `${yards.length} ${name.toLowerCase()}s · top ${TOP.length} in colour · the map shows those within ${REGION_KM} km of your best · ${check}`;
+    $("summary").textContent = `${yards.length} ${name.toLowerCase()}s · top ${TOP.length} in colour · Away = more than ${REGION_KM} km from your best · ${check}`;
   }
 
   function select(i) {
