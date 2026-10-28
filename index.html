@@ -11,10 +11,10 @@
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:ital,wght@0,500;0,600;0,700;0,800;1,700;1,800;1,900&family=Barlow:wght@400;500;600&display=swap">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
 <style>
-  /* Top 5 = yellow, red, blue, violet, teal (chosen to stay apart from each other and from OSM's colours);
-     green = new tiles; pink = planned route. */
+  /* Top 10 = yellow, red, blue, violet, teal, orange, sky, lime, maroon, navy: neighbouring ranks contrast most,
+     and every one carries a numbered badge on the map. Green = new tiles; pink = planned route. */
   :root {
-    --yellow: #ffd400; --red: #e4002b; --blue: #0050ff; --violet: #a21fe0; --teal: #00a3a3; --green: #00a651; --pink: #ff2d8a; --steel: #3d4450;
+    --yellow: #ffd400; --red: #e4002b; --blue: #0050ff; --violet: #a21fe0; --teal: #00a3a3; --orange: #ff7a00; --sky: #00b4ff; --lime: #8fd400; --maroon: #7a1f3d; --navy: #1d2b7a; --green: #00a651; --pink: #ff2d8a; --steel: #3d4450;
     --ink: #0d0e10; --ink-2: #16181b; --ink-3: #22252a; --ink-line: #2e3238;
     --chalk: #f4f2ec; --chalk-muted: #8d929b;
     --paper: #f3f1ea; --paper-2: #e8e5db; --paper-text: #0d0e10; --paper-muted: #5c6068; --paper-line: #d3cfc2;
@@ -335,8 +335,8 @@
   const changesLayer = L.layerGroup().addTo(map);
   let prev = null, changes = null, current = { kml: null, name: null }, changeFocus = false;
 
-  // The top 5 each get their own colour and are always shown, even far from home.
-  const TOP = ["--yellow", "--red", "--blue", "--violet", "--teal"];
+  // The top 10 each get their own colour and a numbered badge.
+  const TOP = ["--yellow", "--red", "--blue", "--violet", "--teal", "--orange", "--sky", "--lime", "--maroon", "--navy"];
   const colorFor = (i) => css(TOP[i] || "--steel");
   const fmt = (n) => n.toLocaleString("en-US");
 
@@ -379,17 +379,17 @@
   const REGION_KM = 25;
   const FOCUS_YARDS = 6;
 
-  // The focus region: the top 5 yards plus every yard whose centre lies within REGION_KM of the best one.
+  // The focus region: every yard whose centre lies within REGION_KM of the best one.
   function region() {
     const { zoom, yards } = data[layer];
     if (!yards.length) return null;
     const home = yardBounds(yards[0], zoom).getCenter();
     const all = yards.map((tiles, i) => ({ tiles, i, bounds: yardBounds(tiles, zoom) }));
+    // Far-away yards are tagged "Away" in the standings and drawn only when selected.
     const nearby = all.filter((y) => home.distanceTo(y.bounds.getCenter()) <= REGION_KM * 1000);
-    const inRegion = all.filter((y) => y.i < TOP.length || nearby.includes(y));
     const union = (ys) => ys.reduce((b, y) => b.extend(y.bounds), L.latLngBounds(ys[0].bounds));
-    // Frame the view on the biggest few yards near home; allow panning over everything shown.
-    return { yards: inRegion, view: union(nearby.slice(0, FOCUS_YARDS)).pad(0.05), bounds: union(inRegion).pad(0.1) };
+    // Frame the view on the biggest few yards; allow panning over the whole region.
+    return { yards: nearby, view: union(nearby.slice(0, FOCUS_YARDS)).pad(0.05), bounds: union(nearby).pad(0.1) };
   }
 
   function renderStats(name) {
@@ -454,7 +454,7 @@
     const check = reportedYard === leader ? "matches Squadrats ✓" : `Squadrats reports ${reportedYard}`;
     drawChanges();
     renderStats(name.toLowerCase());
-    $("summary").textContent = `${yards.length} ${name.toLowerCase()}s · the map shows your top ${TOP.length} and all within ${REGION_KM} km of your best · ${check}`;
+    $("summary").textContent = `${yards.length} ${name.toLowerCase()}s · top ${TOP.length} in colour · the map shows those within ${REGION_KM} km of your best · ${check}`;
   }
 
   function select(i) {
