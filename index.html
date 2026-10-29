@@ -110,6 +110,27 @@
   .tiles { text-align: right; font: 700 20px var(--display); font-variant-numeric: tabular-nums; }
   ol.gc li:nth-child(1) .pos { color: var(--yellow); }
   .empty { padding: 20px 18px; color: var(--chalk-muted); }
+  .rider { min-width: 0; }
+  .rider .place { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .gc-tools { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 0 18px 12px; }
+  .gc-tools select, .gc-tools .check { font-size: 12px; }
+  .gc-tools select { background: var(--ink-2); border: 1px solid var(--ink-line); color: var(--chalk); padding: 4px 6px; }
+  ol.gc li.more { cursor: default; color: var(--chalk-muted); font-size: 12px; display: block; }
+  ol.gc li.more:hover { background: none; }
+
+  /* Next targets */
+  .sub-head { display: flex; justify-content: space-between; font: 600 11px var(--display); letter-spacing: .14em;
+    text-transform: uppercase; color: var(--chalk-muted); margin: 14px 0 6px; }
+  ol.targets { list-style: none; margin: 0; padding: 0; }
+  ol.targets li { display: grid; grid-template-columns: 46px 1fr auto; gap: 8px; align-items: center; padding: 7px 8px;
+    border: 1px solid var(--ink-line); margin-top: -1px; cursor: pointer; font-size: 13px; }
+  ol.targets li:hover { background: var(--ink-2); }
+  ol.targets li.none { cursor: default; color: var(--chalk-muted); display: block; }
+  ol.targets .gain { font: 700 18px/1 var(--display); color: var(--c); font-variant-numeric: tabular-nums; }
+  ol.targets .what { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  ol.targets .cost { color: var(--chalk-muted); font-size: 12px; white-space: nowrap; }
+  .tag-pill { position: absolute; transform: translate(-50%, -50%); white-space: nowrap; background: var(--c); color: var(--ink);
+    border: 2px solid var(--ink); font: 800 12px/1.2 var(--display); padding: 0 4px; cursor: pointer; }
 
   /* Leaflet chrome in the same language */
   .leaflet-container { font-family: var(--body); }
@@ -201,9 +222,30 @@
     </header>
 
     <details class="stage" open>
+      <summary>Next targets</summary>
+      <div class="stage-body">
+        <label class="check"><input type="checkbox" id="showTargets" checked> Show on the map</label>
+        <div class="sub-head"><span>Grow a yard</span><span>one tile</span></div>
+        <ol class="targets" id="targets"></ol>
+        <div class="sub-head"><span>Merge yards</span><span>tiles needed</span></div>
+        <ol class="targets" id="merges"></ol>
+        <div class="sub-head"><span id="uberName">Übersquadratinho</span><span>tiles needed</span></div>
+        <ol class="targets" id="uber"></ol>
+      </div>
+    </details>
+
+    <details class="stage" open>
       <summary>Standings</summary>
       <div class="stage-body" style="padding:0 0 6px">
-        <label class="check" style="padding:0 18px 12px"><input type="checkbox" id="showVisited" checked> Show visited tiles</label>
+        <div class="gc-tools">
+          <label class="check"><input type="checkbox" id="showVisited" checked> Show visited tiles</label>
+          <select id="minSize" aria-label="Smallest yard to show">
+            <option value="1">All sizes</option>
+            <option value="3">3+ tiles</option>
+            <option value="5" selected>5+ tiles</option>
+            <option value="10">10+ tiles</option>
+          </select>
+        </div>
         <div class="gc-head"><span>Pos</span><span id="gcName">Yardinho</span><span>Gap</span><span>Tiles</span></div>
       </div>
     </details>
@@ -234,8 +276,8 @@
         <p>Squadrats shows only your biggest Yard and Yardinho. Here you get all of them, ranked by size with the gap to the leader.</p></div>
       <div class="feature"><div class="no">02</div><h3>Your top 10 on the map</h3>
         <p>Each of your ten biggest gets its own colour and a numbered badge, drawn as outlines so the streets stay readable.</p></div>
-      <div class="feature"><div class="no">03</div><h3>Every ride, everywhere</h3>
-        <p>Yards from trips far from home are on the map too, tagged Away in the standings. Click one to jump there.</p></div>
+      <div class="feature"><div class="no">03</div><h3>What to ride next</h3>
+        <p>The single tiles that grow your yards most, the gaps that would merge two yards, and how to grow your Übersquadrat.</p></div>
     </div>
     <div class="stages">
       <div><span class="kicker">Step 1</span><p>Sign in at <a href="https://squadrats.com" target="_blank" rel="noopener">squadrats.com</a> and open your map.</p></div>
@@ -243,14 +285,16 @@
       <div><span class="kicker">Step 3</span><p>Drop it here. After new rides, export again and drop the new file.</p></div>
     </div>
     <p class="fine"><strong>Your data stays with you.</strong> Your KML is read in your browser and never uploaded. The browser
-      remembers your last export so the map is ready next time. Not affiliated with Squadrats.</p>
+      remembers your last export so the map is ready next time. To show place names, the location of each listed yard is
+      looked up with OpenStreetMap's <a href="https://nominatim.openstreetmap.org" target="_blank" rel="noopener">Nominatim</a>
+      (cached in your browser). Not affiliated with Squadrats.</p>
   </div>
 </section>
 <div class="drop" id="drop">Drop your KML</div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
 <!-- Bump ?v= whenever squadrats.js changes, so browsers don't pair a new page with a cached old script. -->
-<script src="squadrats.js?v=2026-10-25"></script>
+<script src="squadrats.js?v=2026-10-29"></script>
 <script>
   const css = (v) => getComputedStyle(document.documentElement).getPropertyValue(v).trim();
   const $ = (id) => document.getElementById(id);
@@ -261,6 +305,57 @@
 
   let data = null, layer = "squadratinhos", selected = null;
   let visitedLayer = L.layerGroup().addTo(map), yardLayer = L.layerGroup().addTo(map);
+  const targetLayer = L.layerGroup().addTo(map);
+  let focusBounds = null; // a target the viewer jumped to, which may lie outside the home area
+
+  // Per-viewer conveniences, kept in the browser when it allows.
+  const pref = (k, fallback) => { try { return localStorage.getItem(k) ?? fallback; } catch { return fallback; } };
+  const setPref = (k, v) => { try { localStorage.setItem(k, v); } catch { /* storage blocked */ } };
+  $("minSize").value = pref("yard-explorer-min-size", "5");
+
+  // ---- Place names, from OpenStreetMap's Nominatim: one lookup per second at most (their usage policy), cached.
+  const PLACES = "yard-explorer-places";
+  let places = {};
+  try { places = JSON.parse(localStorage.getItem(PLACES)) || {}; } catch { /* storage blocked */ }
+  const placeQueue = [];
+  let placeBusy = false;
+
+  function placeKey(tiles, z) {
+    const [lat, lon] = labelPoint(tiles, z);
+    return `${lat.toFixed(3)},${lon.toFixed(3)}`;
+  }
+
+  // The yard's place name if known; otherwise queue a lookup and return "".
+  function placeOf(tiles, z) {
+    const k = placeKey(tiles, z);
+    if (k in places) return places[k];
+    if (!placeQueue.includes(k)) placeQueue.push(k);
+    pumpPlaces();
+    return "";
+  }
+
+  async function pumpPlaces() {
+    if (placeBusy || !placeQueue.length) return;
+    placeBusy = true;
+    const k = placeQueue.shift(), [lat, lon] = k.split(",");
+    try {
+      const res = await fetch(`https://nominatim.openstreetmap.org/reverse?format=jsonv2&zoom=14&lat=${lat}&lon=${lon}`);
+      if (res.ok) {
+        const a = (await res.json()).address || {};
+        places[k] = a.village || a.town || a.city || a.municipality || a.suburb || a.hamlet || "";
+        try { localStorage.setItem(PLACES, JSON.stringify(places)); } catch { /* storage full or blocked */ }
+        document.querySelectorAll(`[data-place="${k}"]`).forEach((el) => (el.textContent = places[k] || el.dataset.fallback));
+      }
+    } catch { /* offline or blocked: try again on a later render */ }
+    setTimeout(() => { placeBusy = false; pumpPlaces(); }, 1100);
+  }
+
+  // "#3 Keerbergen" style label for a yard, filled in once its place name arrives.
+  function yardLabel(i, fallback = "") {
+    const { yards, zoom } = data[layer];
+    const name = placeOf(yards[i], zoom), k = placeKey(yards[i], zoom);
+    return `#${i + 1} <span data-place="${k}" data-fallback="${fallback}">${name || fallback}</span>`;
+  }
 
   // The top 10 each get their own colour and a numbered badge.
   const TOP = ["--yellow", "--red", "--blue", "--violet", "--teal", "--orange", "--sky", "--lime", "--maroon", "--navy"];
@@ -342,14 +437,20 @@
         fillColor: css("--visited"), fillOpacity: +css("--visited-opacity"), interactive: false,
       }).addTo(visitedLayer);
     }
-    // Every yard is drawn, wherever it is; small to big so the top yards end up on top.
+    // Every yard of the chosen size is drawn, wherever it is; small to big so the top yards end up on top.
+    const minSize = +$("minSize").value;
+    const listed = (i) => i < TOP.length || yards[i].length >= minSize || i === selected;
     for (let i = yards.length - 1; i >= 0; i--) {
       const tiles = yards[i];
+      if (!listed(i)) continue;
       const top = i < TOP.length, isSel = selected === i, dim = selected !== null && !isSel;
       const s = top
         ? shape(outlineLatLngs(tiles, zoom), colorFor(i), { weight: isSel ? 3.5 : 2.5, fill: isSel ? 0.4 : dim ? 0.08 : 0.25, opacity: dim ? 0.45 : 1 })
         : shape(outlineLatLngs(tiles, zoom), colorFor(i), { weight: isSel ? 2.5 : 1.5, fill: isSel ? 0.35 : 0.15, opacity: dim ? 0.4 : 0.9, casing: false });
-      s.on("click", () => select(i)).bindTooltip(`P${i + 1} · ${tiles.length} tiles`, { sticky: true }).addTo(yardLayer);
+      s.on("click", () => select(i)).bindTooltip(() => {
+        const place = places[placeKey(tiles, zoom)];
+        return `P${i + 1}${place ? " · " + place : ""} · ${tiles.length} tiles`;
+      }, { sticky: true }).addTo(yardLayer);
       if (top) {
         L.marker(labelPoint(tiles, zoom), {
           icon: L.divIcon({ className: "", html: `<div class="rank-badge" style="--c:${colorFor(i)}">${i + 1}</div>`, iconSize: [26, 26], iconAnchor: [13, 13] }),
@@ -363,23 +464,113 @@
     const leader = yards[0].length;
     list.innerHTML = "";
     const home = new Set(reg.yards.map((y) => y.i));
+    let hidden = 0;
     yards.forEach((tiles, i) => {
+      if (!listed(i)) return hidden++;
       const li = document.createElement("li");
       if (selected === i) li.className = "selected";
       const badge = i === 0 ? `<em style="background:var(--yellow)">Leader</em>`
         : home.has(i) ? "" : `<em class="away" title="More than ${REGION_KM} km from your best ${name.toLowerCase()}">Away</em>`;
+      const place = placeOf(tiles, zoom);
       li.innerHTML = `<span class="pos">${i + 1}</span>
-        <span class="rider"><i style="background:${colorFor(i)}"></i>${name}${badge}</span>
+        <span class="rider"><i style="background:${colorFor(i)}"></i>
+          <span class="place" data-place="${placeKey(tiles, zoom)}" data-fallback="${name}">${place || name}</span>${badge}</span>
         <span class="gap">${i === 0 ? "—" : "+" + fmt(leader - tiles.length)}</span>
         <span class="tiles">${fmt(tiles.length)}</span>`;
       li.onclick = () => select(i);
       list.appendChild(li);
     });
+    if (hidden) {
+      const li = document.createElement("li");
+      li.className = "more";
+      li.textContent = `${fmt(hidden)} smaller ${name.toLowerCase()}s hidden · change the size filter to see them`;
+      list.appendChild(li);
+    }
 
     const reportedYard = layer === "squadratinhos" ? data.reported.yardinho : data.reported.yard;
     const check = reportedYard === leader ? "matches Squadrats ✓" : `Squadrats reports ${reportedYard}`;
     renderStats(name.toLowerCase());
+    renderTargets();
     $("summary").textContent = `${yards.length} ${name.toLowerCase()}s · top ${TOP.length} in colour · Away = more than ${REGION_KM} km from your best · ${check}`;
+  }
+
+  // ---- Next targets: tiles that grow or merge yards, and the cheapest way to grow the Übersquadrat
+  const SHOWN_TARGETS = 5;
+
+  function plural(n, word) { return `${n} ${word}${n === 1 ? "" : "s"}`; }
+
+  function jumpTo(tiles) {
+    const { zoom } = data[layer];
+    focusBounds = yardBounds(tiles, zoom).pad(1);
+    userMoved = true;
+    lockView();
+    map.fitBounds(focusBounds, { maxZoom: 16 });
+  }
+
+  function targetRow(color, gain, what, cost, tiles) {
+    const li = document.createElement("li");
+    li.style.setProperty("--c", color);
+    li.innerHTML = `<span class="gain">${gain}</span><span class="what">${what}</span><span class="cost">${cost}</span>`;
+    li.onclick = () => jumpTo(tiles);
+    return li;
+  }
+
+  function pill(latlng, color, text, tiles) {
+    L.marker(latlng, {
+      icon: L.divIcon({ className: "", html: `<div class="tag-pill" style="--c:${color}">${text}</div>`, iconSize: null }),
+      zIndexOffset: 800,
+    }).on("click", () => jumpTo(tiles)).addTo(targetLayer);
+  }
+
+  function renderTargets() {
+    targetLayer.clearLayers();
+    const L_ = data[layer], { zoom } = L_, unit = layer === "squadratinhos" ? "Yardinho" : "Yard";
+    L_.growth ||= Squadrats.growth(L_, SHOWN_TARGETS);
+    const { targets, merges } = L_.growth;
+    const onMap = $("showTargets").checked;
+    const green = css("--green"), pink = css("--pink"), ink = css("--ink");
+    const center = (tiles) => yardBounds(tiles, zoom).getCenter();
+
+    $("targets").innerHTML = targets.length ? "" : `<li class="none">No single tile grows a ${unit.toLowerCase()} right now.</li>`;
+    for (const t of targets) {
+      const what = t.yards.length
+        ? `${t.yards.slice(0, 2).map((i) => yardLabel(i)).join(" + ")}${t.yards.length > 2 ? ` +${t.yards.length - 2}` : ""} → ${fmt(t.size)}`
+        : `New ${unit.toLowerCase()} of ${t.size}`;
+      $("targets").appendChild(targetRow(green, `+${t.gain}`, what, "1 tile", t.added));
+      if (onMap) {
+        shape(outlineLatLngs(t.added, zoom), green, { weight: 2, fill: 0.5 }).addTo(targetLayer);
+        pill(center(t.added), green, `+${t.gain}`, t.added);
+      }
+    }
+
+    $("merges").innerHTML = merges.length ? "" : `<li class="none">No two ${unit.toLowerCase()}s are one or two tiles apart.</li>`;
+    for (const m of merges) {
+      const what = `${m.yards.slice(0, 2).map((i) => yardLabel(i)).join(" + ")}${m.yards.length > 2 ? ` +${m.yards.length - 2}` : ""} → ${fmt(m.size)}`;
+      $("merges").appendChild(targetRow(pink, `+${m.gain}`, what, plural(m.added.length, "tile"), m.added));
+      if (onMap) {
+        shape(outlineLatLngs(m.added, zoom), pink, { weight: 2, fill: 0.5 }).addTo(targetLayer);
+        pill(center(m.added), pink, `⇄ ${fmt(m.size)}`, m.added);
+      }
+    }
+
+    const uberName = layer === "squadratinhos" ? "Übersquadratinho" : "Übersquadrat";
+    $("uberName").textContent = uberName;
+    $("uber").innerHTML = "";
+    if (!L_.uber) {
+      $("uber").innerHTML = `<li class="none">This export has no ${uberName}.</li>`;
+    } else {
+      const next = Squadrats.uberGrowth(L_.visited, L_.uber);
+      const square = [[L_.uber.x, L_.uber.y], [L_.uber.x + L_.uber.size, L_.uber.y + L_.uber.size]]
+        .map(([x, y]) => [Squadrats.tileToLat(y, zoom), Squadrats.tileToLon(x, zoom)]);
+      const squareTiles = [`${L_.uber.x},${L_.uber.y}`, `${L_.uber.x + L_.uber.size - 1},${L_.uber.y + L_.uber.size - 1}`];
+      $("uber").appendChild(targetRow(css("--yellow"), `${next.size}`, `${uberName} ${L_.uber.size} → ${next.size}`,
+        plural(next.missing.length, "tile"), next.missing.length ? next.missing : squareTiles));
+      if (onMap) {
+        L.rectangle(square, { color: ink, weight: 2.5, dashArray: "8 5", fill: false, interactive: false }).addTo(targetLayer);
+        if (next.missing.length) shape(outlineLatLngs(next.missing, zoom), css("--yellow"), { weight: 2, fill: 0.45 }).addTo(targetLayer);
+        pill(square[1], css("--yellow"), `Ü ${L_.uber.size} → ${next.size}`, squareTiles);
+      }
+    }
   }
 
   function select(i) {
@@ -396,6 +587,7 @@
     if (!reg) return;
     const allowed = L.latLngBounds(reg.bounds.getSouthWest(), reg.bounds.getNorthEast());
     if (selected !== null) allowed.extend(yardBounds(data[layer].yards[selected], data[layer].zoom).pad(0.5));
+    if (focusBounds) allowed.extend(focusBounds);
     map.setMinZoom(0).setMaxBounds(null);
     map.setMinZoom(map.getBoundsZoom(allowed)).setMaxBounds(allowed.pad(0.2));
   }
@@ -415,6 +607,7 @@
     if (!map.getSize().x) return (pendingFocus = true);
     pendingFocus = false;
     userMoved = false;
+    focusBounds = null;
     lockView();
     map.fitBounds(reg.view, { animate: false });
   }
@@ -435,6 +628,8 @@
     focusRegion();
   }));
   $("showVisited").onchange = render;
+  $("showTargets").onchange = renderTargets;
+  $("minSize").onchange = () => { setPref("yard-explorer-min-size", $("minSize").value); render(); };
   $("file").onchange = (e) => e.target.files[0] && openFile(e.target.files[0]);
 
   const drop = $("drop");

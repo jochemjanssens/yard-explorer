@@ -1,0 +1,8 @@
+{
+  "name": "yard-explorer",
+  "private": true,
+  "scripts": {
+    "start": "node serve.js",
+    "test": "node --test test/"
+  }
+}

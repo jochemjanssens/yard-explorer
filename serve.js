@@ -1,6 +1,6 @@
 // Tiny local server: static files, plus an exports/ folder of Squadrats KML snapshots.
 //   GET /exports.json          list of saved exports, oldest first
-//   PUT /exports/<name>.kml    save a new export (never overwrites)
+//   PUT /exports/<name>.kml    save a new export (never overwrites); only the newest KEEP_EXPORTS are kept
 // Usage: node serve.js [port]
 const http = require("http");
 const fs = require("fs");
@@ -8,6 +8,7 @@ const path = require("path");
 
 const port = Number(process.argv[2]) || 8765;
 const exportsDir = path.join(__dirname, "exports");
+const KEEP_EXPORTS = 3; // the site only reads the newest one; a couple more are kept as a fallback
 const types = { ".html": "text/html", ".js": "text/javascript", ".json": "application/json", ".svg": "image/svg+xml", ".kml": "application/vnd.google-earth.kml+xml" };
 
 function listExports() {
@@ -17,6 +18,15 @@ function listExports() {
     // Order by the date in the file name (squadrats-YYYY-MM-DD.kml), then by when it was saved.
     .sort((a, b) => a.date.localeCompare(b.date) || a.mtime - b.mtime)
     .map((e) => e.name);
+}
+
+// Delete all but the newest KEEP_EXPORTS exports.
+function pruneExports() {
+  const names = listExports();
+  for (const old of names.slice(0, Math.max(0, names.length - KEEP_EXPORTS))) {
+    fs.unlinkSync(path.join(exportsDir, old));
+    console.log(`Removed old export ${old}`);
+  }
 }
 
 function saveExport(req, res, name) {
@@ -31,6 +41,7 @@ function saveExport(req, res, name) {
     fs.mkdirSync(exportsDir, { recursive: true });
     if (listExports().some((f) => fs.readFileSync(path.join(exportsDir, f)).equals(body))) return res.writeHead(200).end("Already saved");
     fs.writeFileSync(target, body);
+    pruneExports();
     res.writeHead(201).end("Saved");
   });
 }
