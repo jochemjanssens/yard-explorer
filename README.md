@@ -6,8 +6,6 @@ A small site for [Squadrats](https://squadrats.com) players:
 - **Your top 10 on the map**, each with its own colour and a numbered badge.
 - **Every yard, everywhere**: yards far from home are drawn too and tagged *Away* in the standings. Rows show the yard's
   place name and can be filtered by size.
-- **Next targets**: the single tiles that grow a yard most, the one- or two-tile gaps that would merge two yards, and the
-  cheapest way to grow your Übersquadrat(inho).
 
 ## Use it
 

@@ -2,7 +2,6 @@
 // Works in the browser (window.Squadrats) and in Node (module.exports).
 (function (root) {
   const ZOOM = { squadrats: 14, squadratinhos: 17 };
-  const UBER = { squadrats: "ubersquadrat", squadratinhos: "ubersquadratinho" };
 
   function lonToTileX(lon, z) {
     return ((lon + 180) / 360) * 2 ** z;
@@ -133,123 +132,6 @@
     return rings;
   }
 
-  const neighbours = (x, y) => [key(x + 1, y), key(x - 1, y), key(x, y + 1), key(x, y - 1)];
-  const coords = (k) => k.split(",").map(Number);
-
-  // What riding through the `added` tiles would do to the yards. New yard tiles appear on the added
-  // tiles and their neighbours; each connected group of them joins the yards it touches.
-  // Returns the group that grows a yard the most: { added, yards (indices, biggest first), size, gain },
-  // or null when no yard tile would be created.
-  function simulate(visited, yards, yardOf, added) {
-    const has = (k) => visited.has(k) || added.includes(k);
-    const fresh = new Set();
-    for (const a of added) {
-      const [x, y] = coords(a);
-      for (const c of [a, ...neighbours(x, y)]) {
-        if (fresh.has(c) || yardOf.has(c) || !has(c)) continue;
-        const [cx, cy] = coords(c);
-        if (neighbours(cx, cy).every(has)) fresh.add(c);
-      }
-    }
-    let best = null;
-    const seen = new Set();
-    for (const start of fresh) {
-      if (seen.has(start)) continue;
-      let count = 0;
-      const touched = new Set(), stack = [start];
-      seen.add(start);
-      while (stack.length) {
-        const [x, y] = coords(stack.pop());
-        count++;
-        for (const n of neighbours(x, y)) {
-          if (yardOf.has(n)) touched.add(yardOf.get(n));
-          else if (fresh.has(n) && !seen.has(n)) { seen.add(n); stack.push(n); }
-        }
-      }
-      const ids = [...touched].sort((a, b) => a - b); // yards are sorted biggest first
-      const size = count + ids.reduce((sum, i) => sum + yards[i].length, 0);
-      const gain = size - (ids.length ? yards[ids[0]].length : 0);
-      if (!best || gain > best.gain) best = { added, yards: ids, size, gain };
-    }
-    return best;
-  }
-
-  // Unvisited tiles worth riding through: single tiles that grow one yard (or start a new one), and the
-  // cheapest way (one or two tiles) to merge each pair of yards that are that close (a merge may pull in more).
-  function growth({ visited, yards }, limit = 15) {
-    const yardOf = new Map();
-    yards.forEach((tiles, i) => tiles.forEach((k) => yardOf.set(k, i)));
-
-    // Only unvisited tiles next to a visited one can create yard tiles.
-    const frontier = new Set();
-    for (const k of visited) {
-      const [x, y] = coords(k);
-      for (const n of neighbours(x, y)) if (!visited.has(n)) frontier.add(n);
-    }
-
-    const singles = [];
-    for (const t of frontier) {
-      const r = simulate(visited, yards, yardOf, [t]);
-      if (r && r.gain > 0) singles.push(r);
-    }
-    const firstYard = (r) => (r.yards.length ? r.yards[0] : Infinity);
-    singles.sort((a, b) => b.gain - a.gain || firstYard(a) - firstYard(b));
-
-    const merges = new Map(); // "i+j" -> cheapest way to merge those yards
-    const consider = (r) => {
-      if (!r || r.yards.length < 2) return;
-      const id = r.yards.slice(0, 2).join("+"), cur = merges.get(id); // keyed by the two biggest yards joined
-      if (!cur || r.added.length < cur.added.length || (r.added.length === cur.added.length && r.size > cur.size)) merges.set(id, r);
-    };
-    singles.forEach(consider);
-    // Two-tile gaps: pairs of nearby frontier tiles that lie within two tiles of a yard.
-    const nearYard = [...frontier].filter((t) => {
-      const [x, y] = coords(t);
-      for (let dx = -2; dx <= 2; dx++) for (let dy = -2; dy <= 2; dy++) if (yardOf.has(key(x + dx, y + dy))) return true;
-      return false;
-    });
-    const nearSet = new Set(nearYard);
-    for (const a of nearYard) {
-      const [x, y] = coords(a);
-      for (let dx = -2; dx <= 2; dx++) {
-        for (let dy = -2; dy <= 2; dy++) {
-          const b = key(x + dx, y + dy);
-          if (b > a && nearSet.has(b)) consider(simulate(visited, yards, yardOf, [a, b]));
-        }
-      }
-    }
-
-    return {
-      targets: singles.filter((r) => r.yards.length < 2).slice(0, limit), // tiles that join yards are listed under merges
-      merges: [...merges.values()].sort((a, b) => b.gain - a.gain || a.added.length - b.added.length).slice(0, limit),
-    };
-  }
-
-  // The square a placemark covers, in tiles: { x, y, size } (top-left corner and side length).
-  function squareOf(tiles) {
-    const pts = [...tiles].map(coords);
-    const xs = pts.map((p) => p[0]), ys = pts.map((p) => p[1]);
-    const x = Math.min(...xs), y = Math.min(...ys);
-    return { x, y, size: Math.max(Math.max(...xs) - x, Math.max(...ys) - y) + 1 };
-  }
-
-  // The cheapest one-bigger square around the current Übersquadrat: of the four ways to add a row
-  // and a column, the one with the fewest unvisited tiles. Returns { x, y, size, missing }.
-  function uberGrowth(visited, { x, y, size }) {
-    let best = null;
-    for (const [dx, dy] of [[0, 0], [-1, 0], [0, -1], [-1, -1]]) {
-      const missing = [];
-      for (let i = 0; i <= size; i++) {
-        for (let j = 0; j <= size; j++) {
-          const k = key(x + dx + i, y + dy + j);
-          if (!visited.has(k)) missing.push(k);
-        }
-      }
-      if (!best || missing.length < best.missing.length) best = { x: x + dx, y: y + dy, size: size + 1, missing };
-    }
-    return best;
-  }
-
   function analyse(kml) {
     const placemarks = parsePlacemarks(kml);
     const result = {};
@@ -258,17 +140,12 @@
       if (!pm) continue;
       const visited = rasterise(pm.rings, z);
       result[layer] = { zoom: z, visited, reportedSize: pm.size, yards: findYards(visited) };
-      const uber = placemarks[UBER[layer]];
-      if (uber) result[layer].uber = squareOf(rasterise(uber.rings, z));
     }
     result.reported = Object.fromEntries(Object.entries(placemarks).map(([n, p]) => [n, p.size]));
     return result;
   }
 
-  const api = {
-    analyse, parsePlacemarks, rasterise, findYards, outline, simulate, growth, squareOf, uberGrowth,
-    tileToLat, tileToLon, lonToTileX, latToTileY,
-  };
+  const api = { analyse, parsePlacemarks, rasterise, findYards, outline, tileToLat, tileToLon, lonToTileX, latToTileY };
   if (typeof module !== "undefined" && module.exports) module.exports = api;
   else root.Squadrats = api;
 })(typeof window !== "undefined" ? window : globalThis);
