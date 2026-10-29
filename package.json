@@ -3,6 +3,6 @@
   "private": true,
   "scripts": {
     "start": "node serve.js",
-    "test": "node --test test/"
+    "test": "node --test test/*.test.js"
   }
 }
