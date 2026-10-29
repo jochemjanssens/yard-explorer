@@ -8,210 +8,217 @@
 <meta name="description" content="See all your Squadrats Yards and Yardinhos ranked, with your top 10 highlighted on the map.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:ital,wght@0,500;0,600;0,700;0,800;1,700;1,800;1,900&family=Barlow:wght@400;500;600&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Space+Grotesk:wght@400;500;600;700&display=swap">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
 <style>
-  /* Top 10 = yellow, red, blue, violet, teal, orange, sky, lime, maroon, navy: neighbouring ranks contrast most,
-     and every one carries a numbered badge on the map. Green and pink are only decoration (stripes, landing page). */
+  /* Tile grid: everything snaps to squares. One signal colour (electric green) for the interface;
+     the ten rank colours carry meaning on the map, so they stay the same in light and dark mode. */
   :root {
-    --yellow: #ffd400; --red: #e4002b; --blue: #0050ff; --violet: #a21fe0; --teal: #00a3a3; --orange: #ff7a00; --sky: #00b4ff; --lime: #8fd400; --maroon: #7a1f3d; --navy: #1d2b7a; --green: #00a651; --pink: #ff2d8a; --steel: #3d4450;
-    --ink: #0d0e10; --ink-2: #16181b; --ink-3: #22252a; --ink-line: #2e3238;
-    --chalk: #f4f2ec; --chalk-muted: #8d929b;
-    --paper: #f3f1ea; --paper-2: #e8e5db; --paper-text: #0d0e10; --paper-muted: #5c6068; --paper-line: #d3cfc2;
-    --visited: #0d0e10; --visited-opacity: 0.1;
-    --display: "Barlow Condensed", "Arial Narrow", sans-serif;
-    --body: "Barlow", -apple-system, "Segoe UI", sans-serif;
+    --yellow: #ffd400; --red: #e4002b; --blue: #0050ff; --violet: #a21fe0; --teal: #00a3a3;
+    --orange: #ff7a00; --sky: #00b4ff; --brown: #8d5a2b; --maroon: #7a1f3d; --navy: #1d2b7a;
+    --pink: #ff2d8a; --steel: #5b6270;
+    --signal: #00e676; --signal-text: #00813b;
+    --bg: #f4f4f0; --panel: #fbfbf8; --hover: #ecece6; --ink: #121316; --muted: #6a6c71;
+    --line: #d8d8d2; --grid: rgba(18, 19, 22, .055); --shade: #121316;
+    /* map drawing always sits on the light OpenStreetMap tiles */
+    --casing: #121316; --visited: #121316; --visited-opacity: 0.1;
+    --sans: "Space Grotesk", -apple-system, "Segoe UI", sans-serif;
+    --mono: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, monospace;
+    --cell: 16px;
   }
   @media (prefers-color-scheme: dark) {
     :root:not([data-theme="light"]) {
-      --paper: #0d0e10; --paper-2: #16181b; --paper-text: #f4f2ec; --paper-muted: #9a9ea6; --paper-line: #2e3238;
+      --bg: #0e0f11; --panel: #141518; --hover: #1c1e22; --ink: #efefe9; --muted: #989aa0;
+      --line: #2a2c31; --grid: rgba(255, 255, 255, .035); --shade: #000; --signal-text: #2bf07a;
     }
   }
   :root[data-theme="dark"] {
-    --paper: #0d0e10; --paper-2: #16181b; --paper-text: #f4f2ec; --paper-muted: #9a9ea6; --paper-line: #2e3238;
+    --bg: #0e0f11; --panel: #141518; --hover: #1c1e22; --ink: #efefe9; --muted: #989aa0;
+    --line: #2a2c31; --grid: rgba(255, 255, 255, .035); --shade: #000; --signal-text: #2bf07a;
   }
 
   * { box-sizing: border-box; }
-  html, body { margin: 0; height: 100%; background: var(--ink); color: var(--chalk); font: 15px/1.45 var(--body); }
+  html, body { margin: 0; height: 100%; background: var(--bg); color: var(--ink); font: 15px/1.45 var(--sans); }
   button, input, select { font: inherit; color: inherit; }
-  .app { display: grid; grid-template-columns: 340px 1fr; height: 100%; }
-  #map { height: 100%; background: var(--paper-2); }
+  .gridded {
+    background-color: var(--bg);
+    background-image: linear-gradient(var(--grid) 1px, transparent 1px), linear-gradient(90deg, var(--grid) 1px, transparent 1px);
+    background-size: var(--cell) var(--cell);
+  }
+  .mono { font-family: var(--mono); }
+  .label { font: 500 10.5px/1.2 var(--mono); letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
 
-  /* ---------- Sidebar: bike-computer dark ---------- */
-  aside { background: var(--ink); border-right: 1px solid var(--ink-line); display: flex; flex-direction: column;
-    min-height: 0; overflow-y: auto; scrollbar-color: var(--ink-line) transparent; }
+  .app { display: grid; grid-template-columns: 368px 1fr; height: 100%; }
+  #map { height: 100%; background: var(--hover); }
+
+  /* ---------- Sidebar ---------- */
+  aside { border-right: 1.5px solid var(--ink); display: flex; flex-direction: column; min-height: 0; overflow-y: auto;
+    scrollbar-color: var(--line) transparent; }
   aside > * { flex: none; }
-  header { padding: 18px 18px 16px; border-bottom: 1px solid var(--ink-line); }
+  header { padding: 16px 16px 18px; }
+
+  .logo { display: grid; grid-template-columns: repeat(3, 7px); gap: 1.5px; flex: none; }
+  .logo i { width: 7px; height: 7px; background: var(--line); }
+  .logo i.on { background: var(--signal); }
   .brand { display: flex; align-items: center; gap: 10px; }
-  .stripes { display: flex; gap: 3px; transform: skewX(-18deg); }
-  .stripes i { width: 6px; height: 22px; display: block; }
-  .stripes i:nth-child(1) { background: var(--yellow); }
-  .stripes i:nth-child(2) { background: var(--green); }
-  .stripes i:nth-child(3) { background: var(--pink); }
-  .stripes i:nth-child(4) { background: var(--red); }
-  .wordmark { font: italic 900 24px/1 var(--display); word-spacing: .12em; text-transform: uppercase; letter-spacing: .01em; margin: 0; }
-  .wordmark span { color: var(--yellow); }
-  .brand .about { margin-left: auto; font: 600 12px var(--display); letter-spacing: .12em; text-transform: uppercase;
-    color: var(--chalk-muted); background: none; border: 0; cursor: pointer; padding: 4px 0; }
-  .brand .about:hover { color: var(--chalk); }
+  .wordmark { font: 700 19px/1 var(--sans); letter-spacing: -.02em; margin: 0; }
+  .brand .about { margin-left: auto; background: none; border: 0; padding: 4px 0; cursor: pointer; }
+  .brand .about:hover { color: var(--ink); }
 
-  .stats { display: grid; grid-template-columns: repeat(3, 1fr); margin-top: 16px; border-top: 1px solid var(--ink-line); }
-  .stat { padding: 10px 0 0; }
-  .stat + .stat { padding-left: 12px; border-left: 1px solid var(--ink-line); }
-  .stat b { display: block; font: 700 30px/1 var(--display); font-variant-numeric: tabular-nums; letter-spacing: -.01em; }
-  .stat b.hl { color: var(--yellow); }
-  .stat small, .kicker { display: block; font: 600 11px/1.2 var(--display); letter-spacing: .14em; text-transform: uppercase; color: var(--chalk-muted); margin-top: 4px; }
-  .summary { font-size: 12px; color: var(--chalk-muted); margin-top: 10px; }
+  /* HUD: three tiles of stats */
+  .hud { display: grid; grid-template-columns: repeat(3, 1fr); margin-top: 16px; border: 1.5px solid var(--ink);
+    background: var(--panel); box-shadow: 3px 3px 0 var(--shade); }
+  .hud > div { padding: 9px 10px 10px; }
+  .hud > div + div { border-left: 1px solid var(--line); }
+  .hud b { display: block; margin-top: 6px; font: 700 23px/1 var(--mono); letter-spacing: -.03em; font-variant-numeric: tabular-nums; }
+  .hud .label { font-size: 9.5px; letter-spacing: .04em; white-space: nowrap; }
+  .hud .hi { background: var(--signal); }
+  .hud .hi .label, .hud .hi b { color: #121316; }
+  .summary { margin-top: 12px; font: 400 11.5px/1.5 var(--mono); color: var(--muted); }
 
-  .seg { display: grid; grid-template-columns: 1fr 1fr; margin-top: 14px; border: 1px solid var(--ink-line); }
-  .seg button { padding: 8px; background: transparent; border: 0; cursor: pointer; color: var(--chalk-muted);
-    font: 700 14px var(--display); letter-spacing: .1em; text-transform: uppercase; }
-  .seg button + button { border-left: 1px solid var(--ink-line); }
-  .seg button.active { background: var(--yellow); color: var(--ink); }
-  .file { margin-top: 12px; font-size: 12px; color: var(--chalk-muted); }
-  .file label { color: var(--chalk); cursor: pointer; border-bottom: 1px solid var(--yellow); }
+  .seg { display: grid; grid-template-columns: 1fr 1fr; margin-top: 14px; border: 1.5px solid var(--ink); background: var(--panel); }
+  .seg button { padding: 8px; background: transparent; border: 0; cursor: pointer; font: 700 12px var(--mono);
+    letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
+  .seg button + button { border-left: 1.5px solid var(--ink); }
+  .seg button.active { background: var(--ink); color: var(--panel); }
+  .file { margin-top: 12px; font: 400 11.5px var(--mono); color: var(--muted); }
+  .file label { color: var(--ink); cursor: pointer; text-decoration: underline; text-decoration-color: var(--signal);
+    text-decoration-thickness: 2px; text-underline-offset: 3px; }
   .file input { display: none; }
 
-  details.stage { border-bottom: 1px solid var(--ink-line); }
-  details.stage > summary { list-style: none; display: flex; align-items: baseline; gap: 10px; padding: 14px 18px; cursor: pointer;
-    font: 700 16px var(--display); letter-spacing: .08em; text-transform: uppercase; }
+  details.stage { border-top: 1.5px solid var(--ink); background: var(--panel); }
+  details.stage > summary { list-style: none; display: flex; align-items: center; gap: 9px; padding: 13px 16px; cursor: pointer;
+    font: 700 12px var(--mono); letter-spacing: .1em; text-transform: uppercase; }
   details.stage > summary::-webkit-details-marker { display: none; }
-  details.stage > summary .no { font: italic 800 15px var(--display); color: var(--yellow); }
-  details.stage > summary::after { content: "+"; margin-left: auto; color: var(--chalk-muted); font-weight: 600; }
-  details.stage[open] > summary::after { content: "–"; }
-  .stage-body { padding: 0 18px 16px; }
+  details.stage > summary::before { content: ""; width: 9px; height: 9px; background: var(--signal); outline: 1.5px solid var(--ink); }
+  details.stage > summary::after { content: "+"; margin-left: auto; color: var(--muted); }
+  details.stage[open] > summary::after { content: "−"; }
+  .stage-body { padding: 0 16px 16px; }
 
+  .check { display: flex; gap: 7px; align-items: center; font: 400 11.5px var(--mono); color: var(--muted); cursor: pointer; }
+  .check input { accent-color: var(--signal-text); margin: 0; }
+  select { border: 1.5px solid var(--ink); background: var(--panel); padding: 4px 6px; font: 500 11.5px var(--mono); border-radius: 0; }
 
-  .btn { padding: 9px 14px; background: transparent; border: 1px solid var(--ink-line); color: var(--chalk); cursor: pointer;
-    font: 700 14px var(--display); letter-spacing: .1em; text-transform: uppercase; border-radius: 0; }
-  .btn:hover:not(:disabled) { border-color: var(--chalk-muted); }
-  .btn.go { background: var(--yellow); border-color: var(--yellow); color: var(--ink); }
-  .btn.go:hover:not(:disabled) { background: #ffe14d; border-color: #ffe14d; }
-  .btn:disabled { opacity: .35; cursor: default; }
-  .check { display: flex; gap: 8px; align-items: center; font-size: 12px; color: var(--chalk-muted); cursor: pointer; }
-  .check input { accent-color: var(--yellow); }
+  .btn { padding: 10px 16px; background: var(--panel); border: 1.5px solid var(--ink); cursor: pointer; border-radius: 0;
+    font: 700 13px var(--mono); letter-spacing: .06em; text-transform: uppercase; box-shadow: 3px 3px 0 var(--shade);
+    transition: transform .06s, box-shadow .06s; }
+  .btn:hover { background: var(--hover); }
+  .btn:active { transform: translate(3px, 3px); box-shadow: none; }
+  .btn.go { background: var(--signal); color: #121316; }
+  .btn.go:hover { background: #3cf092; }
 
-
-  /* Standings, GC style */
-  .gc-head { display: grid; grid-template-columns: 34px 1fr 64px 52px; gap: 8px; padding: 0 18px 6px;
-    font: 600 11px var(--display); letter-spacing: .14em; text-transform: uppercase; color: var(--chalk-muted); }
-  .gc-head span:nth-child(n+3) { text-align: right; }
-  ol.gc { list-style: none; margin: 0; padding: 0 0 12px; flex: 1 0 200px; }
-  ol.gc li { display: grid; grid-template-columns: 34px 1fr 64px 52px; gap: 8px; align-items: center; padding: 8px 18px;
-    cursor: pointer; border-left: 4px solid transparent; }
-  ol.gc li:hover { background: var(--ink-2); }
-  ol.gc li.selected { background: var(--ink-2); border-left-color: var(--chalk); }
-  .pos { font: italic 800 18px var(--display); font-variant-numeric: tabular-nums; color: var(--chalk-muted); }
-  .rider { display: flex; align-items: center; gap: 8px; font: 600 15px var(--display); letter-spacing: .06em; text-transform: uppercase; }
-  .rider i { width: 14px; height: 14px; flex: none; }
-  .rider em { font: 600 11px var(--display); letter-spacing: .12em; font-style: normal; padding: 1px 5px; color: var(--ink); }
-  .rider em.away { background: transparent; color: var(--chalk-muted); border: 1px solid var(--ink-line); }
-  .gap { text-align: right; font-size: 12px; color: var(--chalk-muted); font-variant-numeric: tabular-nums; }
-  .tiles { text-align: right; font: 700 20px var(--display); font-variant-numeric: tabular-nums; }
-  ol.gc li:nth-child(1) .pos { color: var(--yellow); }
-  .empty { padding: 20px 18px; color: var(--chalk-muted); }
-  .rider { min-width: 0; }
-  .rider .place { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .gc-tools { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 0 18px 12px; }
-  .gc-tools select, .gc-tools .check { font-size: 12px; }
-  .gc-tools select { background: var(--ink-2); border: 1px solid var(--ink-line); color: var(--chalk); padding: 4px 6px; }
-  ol.gc li.more { cursor: default; color: var(--chalk-muted); font-size: 12px; display: block; }
-  ol.gc li.more:hover { background: none; }
+  /* Square chips: rank numbers and target gains */
+  .chip { display: inline-grid; place-items: center; min-width: 26px; height: 26px; padding: 0 5px; background: var(--c, var(--panel));
+    color: var(--t, var(--ink)); border: 1.5px solid #121316; font: 700 12px/1 var(--mono); font-variant-numeric: tabular-nums; }
+  .chip.plain { background: transparent; color: var(--muted); border-color: var(--line); font-weight: 500; }
 
   /* Next targets */
-  .sub-head { display: flex; justify-content: space-between; font: 600 11px var(--display); letter-spacing: .14em;
-    text-transform: uppercase; color: var(--chalk-muted); margin: 14px 0 6px; }
-  ol.targets { list-style: none; margin: 0; padding: 0; }
-  ol.targets li { display: grid; grid-template-columns: 46px 1fr auto; gap: 8px; align-items: center; padding: 7px 8px;
-    border: 1px solid var(--ink-line); margin-top: -1px; cursor: pointer; font-size: 13px; }
-  ol.targets li:hover { background: var(--ink-2); }
-  ol.targets li.none { cursor: default; color: var(--chalk-muted); display: block; }
-  ol.targets .gain { font: 700 18px/1 var(--display); color: var(--c); font-variant-numeric: tabular-nums; }
+  .sub-head { display: flex; justify-content: space-between; margin: 16px 0 6px; }
+  ol.targets { list-style: none; margin: 0; padding: 0; border: 1px solid var(--line); background: var(--panel); }
+  ol.targets li { display: grid; grid-template-columns: auto 1fr auto; gap: 10px; align-items: center; padding: 6px 8px;
+    cursor: pointer; font-size: 13.5px; }
+  ol.targets li + li { border-top: 1px solid var(--line); }
+  ol.targets li:hover { background: var(--hover); }
+  ol.targets .chip { min-width: 44px; }
+  ol.targets li.none { display: block; cursor: default; color: var(--muted); font: 400 11.5px var(--mono); padding: 9px 10px; }
   ol.targets .what { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  ol.targets .cost { color: var(--chalk-muted); font-size: 12px; white-space: nowrap; }
-  .tag-pill { position: absolute; transform: translate(-50%, -50%); white-space: nowrap; background: var(--c); color: var(--ink);
-    border: 2px solid var(--ink); font: 800 12px/1.2 var(--display); padding: 0 4px; cursor: pointer; }
+  ol.targets .what b { font: 500 11.5px var(--mono); color: var(--muted); }
+  ol.targets .cost { font: 400 11px var(--mono); color: var(--muted); white-space: nowrap; }
 
-  /* Leaflet chrome in the same language */
-  .leaflet-container { font-family: var(--body); }
-  .leaflet-bar { border: 0 !important; box-shadow: none !important; }
-  .leaflet-bar a { background: var(--ink) !important; color: var(--chalk) !important; border-radius: 0 !important;
-    border-bottom: 1px solid var(--ink-line) !important; }
-  .leaflet-tooltip { background: var(--ink); color: var(--chalk); border: 0; border-radius: 0; box-shadow: none;
-    font: 600 13px var(--display); letter-spacing: .08em; text-transform: uppercase; }
+  /* Standings */
+  .gc-tools { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 0 16px 12px; }
+  .gc-head, ol.gc li { display: grid; grid-template-columns: 30px 1fr 56px 52px; gap: 10px; align-items: center; }
+  .gc-head { padding: 0 16px 6px; }
+  .gc-head span:nth-child(n+3) { text-align: right; }
+  ol.gc { list-style: none; margin: 0; padding: 0 0 16px; flex: 1 0 200px; background: var(--panel); }
+  ol.gc li { padding: 6px 16px; cursor: pointer; border-top: 1px solid var(--line); }
+  ol.gc li:hover { background: var(--hover); }
+  ol.gc li.selected { background: var(--hover); box-shadow: inset 4px 0 0 var(--signal); }
+  .rider { display: flex; align-items: center; gap: 8px; min-width: 0; font-weight: 500; font-size: 14.5px; }
+  .rider .place { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .tag { flex: none; font: 700 9.5px/1 var(--mono); letter-spacing: .08em; text-transform: uppercase; padding: 3px 5px;
+    border: 1px solid var(--line); color: var(--muted); }
+  .tag.lead { background: var(--signal); border-color: #121316; color: #121316; }
+  .gap { text-align: right; font: 400 11.5px var(--mono); color: var(--muted); font-variant-numeric: tabular-nums; }
+  .tiles { text-align: right; font: 700 14px var(--mono); font-variant-numeric: tabular-nums; }
+  ol.gc li.more { display: block; cursor: default; font: 400 11.5px var(--mono); color: var(--muted); padding: 12px 16px; }
+  ol.gc li.more:hover { background: none; }
+  .empty { padding: 20px 16px; color: var(--muted); font: 400 12px var(--mono); }
+
+  /* Leaflet chrome as tiles too */
+  .leaflet-container { font-family: var(--sans); }
+  .leaflet-bar { border: 1.5px solid #121316 !important; border-radius: 0 !important; box-shadow: 3px 3px 0 #121316 !important; }
+  .leaflet-bar a { border-radius: 0 !important; color: #121316 !important; font: 700 16px/26px var(--mono) !important; }
+  .leaflet-bar a:first-child { border-bottom: 1.5px solid #121316 !important; }
+  .leaflet-tooltip { background: #121316; color: #fbfbf8; border: 0; border-radius: 0; box-shadow: none; font: 500 11.5px var(--mono); }
   .leaflet-tooltip-top:before, .leaflet-tooltip-bottom:before, .leaflet-tooltip-left:before, .leaflet-tooltip-right:before { display: none; }
-  .rank-badge { width: 26px; height: 26px; display: grid; place-items: center; background: var(--ink); color: var(--chalk);
-    border: 3px solid var(--c); font: italic 800 15px/1 var(--display); box-shadow: 0 1px 4px rgba(0,0,0,.35); cursor: pointer; }
+  .leaflet-control-attribution { font: 400 10px var(--mono); }
+  .map-chip { box-shadow: 2px 2px 0 #121316; cursor: pointer; }
+  .tag-pill { position: absolute; transform: translate(-50%, -50%); white-space: nowrap; background: var(--c); color: #121316;
+    border: 1.5px solid #121316; box-shadow: 2px 2px 0 #121316; font: 700 11px/1 var(--mono); padding: 4px 5px; cursor: pointer; }
 
   .drop { position: fixed; inset: 0; z-index: 2000; display: none; align-items: center; justify-content: center;
-    background: rgba(13,14,16,.82); color: var(--yellow); font: italic 900 clamp(32px, 6vw, 64px) var(--display);
-    text-transform: uppercase; outline: 6px solid var(--yellow); outline-offset: -18px; }
+    background: rgba(0, 230, 118, .18); backdrop-filter: blur(2px); font: 700 clamp(22px, 4vw, 40px) var(--mono);
+    text-transform: uppercase; letter-spacing: .06em; outline: 3px dashed var(--ink); outline-offset: -20px; }
   .drop.show { display: flex; }
 
   /* ---------- Landing ---------- */
-  .landing { position: fixed; inset: 0; z-index: 1500; overflow-y: auto; background: var(--paper); color: var(--paper-text); }
+  .landing { position: fixed; inset: 0; z-index: 1500; overflow-y: auto; color: var(--ink); --cell: 24px; }
   .landing[hidden] { display: none; }
-  .landing .band { position: absolute; top: 0; right: 0; width: 680px; max-width: 100%; height: 440px; overflow: hidden; pointer-events: none; }
-  .landing .band i { position: absolute; top: -120px; width: 70px; height: 760px; transform: rotate(28deg); transform-origin: top; }
-  .landing .band i:nth-child(1) { right: 330px; background: var(--yellow); }
-  .landing .band i:nth-child(2) { right: 240px; background: var(--green); }
-  .landing .band i:nth-child(3) { right: 150px; background: var(--pink); }
-  .landing .band i:nth-child(4) { right: 60px; background: var(--red); }
-  .landing .wrap { position: relative; max-width: 1040px; margin: 0 auto; padding: 22px 24px 56px; }
+  .landing .wrap { max-width: 1104px; margin: 0 auto; padding: 24px 24px 64px; }
   .topbar { display: flex; align-items: center; gap: 10px; }
-  .topbar .wordmark span { color: inherit; background: var(--yellow); color: var(--ink); padding: 0 4px; }
-  .hero { padding: 80px 0 56px; max-width: 700px; }
-  .hero .kicker { color: var(--paper-muted); }
-  .hero h2 { font: italic 900 clamp(56px, 11vw, 128px)/.86 var(--display); text-transform: uppercase; margin: 14px 0 22px; letter-spacing: -.01em; }
-  .hero h2 mark { background: var(--yellow); color: var(--ink); padding: 0 .08em; }
-  .hero p { font-size: 18px; max-width: 520px; color: var(--paper-muted); margin: 0; }
+  .topbar .label { margin-left: auto; }
+  .hero { display: grid; grid-template-columns: 1.15fr 1fr; gap: 48px; align-items: center; padding: 72px 0 64px; }
+  .hero h2 { font: 700 clamp(46px, 7.4vw, 92px)/1 var(--sans); letter-spacing: -.045em; margin: 14px 0 26px; }
+  .hero h2 mark { display: inline-block; margin-top: .14em; line-height: .95; background: var(--signal); color: #121316;
+    padding: 0 .1em .04em; box-shadow: 5px 5px 0 var(--shade); }
+  .hero p { font-size: 18px; max-width: 470px; color: var(--muted); margin: 0; }
   .hero .cta { display: flex; flex-wrap: wrap; gap: 14px; align-items: center; margin-top: 30px; }
-  .hero .btn { font-size: 17px; padding: 14px 22px; color: var(--paper-text); border-color: var(--paper-line); }
-  .hero .btn.go { color: var(--ink); border-color: var(--yellow); }
-  .hero .hint { font-size: 13px; color: var(--paper-muted); }
-  .features { display: grid; grid-template-columns: repeat(3, 1fr); gap: 28px; }
-  .feature { border-top: 6px solid var(--paper-text); padding-top: 14px; }
-  .feature:nth-child(1) { border-color: var(--yellow); }
-  .feature:nth-child(2) { border-color: var(--green); }
-  .feature:nth-child(3) { border-color: var(--pink); }
-  .feature .no { font: italic 900 44px/1 var(--display); color: var(--paper-line); }
-  .feature h3 { font: 800 24px/1.05 var(--display); text-transform: uppercase; margin: 6px 0 8px; letter-spacing: .01em; }
-  .feature p { margin: 0; color: var(--paper-muted); font-size: 15px; }
-  .stages { margin-top: 64px; display: grid; grid-template-columns: repeat(3, 1fr); border-top: 1px solid var(--paper-line); }
-  .stages > div { padding: 16px 20px 0 0; }
-  .stages > div + div { padding-left: 20px; border-left: 1px solid var(--paper-line); }
-  .stages .kicker { color: var(--paper-muted); }
-  .stages p { margin: 6px 0 0; font-size: 15px; }
-  .stages a, .fine a { color: inherit; text-decoration-color: var(--yellow); text-decoration-thickness: 2px; text-underline-offset: 3px; }
-  .fine { margin-top: 56px; padding-top: 16px; border-top: 1px solid var(--paper-line); font-size: 13px; color: var(--paper-muted); max-width: 760px; }
+  .hero .btn { font-size: 14px; padding: 13px 20px; }
+  .mosaic { display: grid; grid-template-columns: repeat(14, 1fr); gap: 3px; padding: 14px; background: var(--panel);
+    border: 1.5px solid var(--ink); box-shadow: 6px 6px 0 var(--shade); }
+  .mosaic i { aspect-ratio: 1; background: var(--hover); }
+  .mosaic i.v { background: var(--line); }
+  .mosaic i.y { background: var(--signal); }
+  .mosaic i.r1 { background: var(--yellow); } .mosaic i.r2 { background: var(--red); } .mosaic i.r3 { background: var(--blue); }
+  .mosaic i.t { background: transparent; outline: 2px dashed var(--signal-text); outline-offset: -3px; }
+  .features { display: grid; grid-template-columns: repeat(3, 1fr); border: 1.5px solid var(--ink); background: var(--panel);
+    box-shadow: 4px 4px 0 var(--shade); }
+  .feature { padding: 20px 22px 24px; }
+  .feature + .feature { border-left: 1px solid var(--line); }
+  .feature h3 { font: 600 21px/1.15 var(--sans); letter-spacing: -.02em; margin: 14px 0 8px; }
+  .feature p { margin: 0; color: var(--muted); font-size: 15px; }
+  .steps { margin-top: 40px; display: grid; grid-template-columns: repeat(3, 1fr); gap: 24px; }
+  .steps p { margin: 8px 0 0; font-size: 15px; }
+  .steps a, .fine a { color: inherit; text-decoration-color: var(--signal); text-decoration-thickness: 2px; text-underline-offset: 3px; }
+  .fine { margin-top: 48px; padding-top: 16px; border-top: 1px solid var(--line); font: 400 12px/1.6 var(--mono); color: var(--muted); max-width: 820px; }
 
-  @media (max-width: 1180px) {
-    .landing .band { transform: scale(.55); transform-origin: top right; }
+  @media (max-width: 860px) {
+    .hero { grid-template-columns: 1fr; padding-top: 40px; gap: 32px; }
+    .features, .steps { grid-template-columns: 1fr; }
+    .feature + .feature { border-left: 0; border-top: 1px solid var(--line); }
   }
   @media (max-width: 760px) {
     .app { grid-template-columns: 1fr; grid-template-rows: 45vh minmax(0, 1fr); }
-    aside { order: 2; border-right: 0; border-top: 1px solid var(--ink-line); }
+    aside { order: 2; border-right: 0; border-top: 1.5px solid var(--ink); }
     ol.gc { flex: none; }
-    .features, .stages { grid-template-columns: 1fr; }
-    .stages > div + div { padding-left: 0; border-left: 0; border-top: 1px solid var(--paper-line); }
-    .landing .band { top: 64px; transform: scale(.32); transform-origin: top right; }
-    .hero { padding-top: 170px; }
+    .topbar .label { display: none; }
   }
 </style>
 </head>
 <body>
 <div class="app">
-  <aside>
+  <aside class="gridded">
     <header>
       <div class="brand">
-        <div class="stripes"><i></i><i></i><i></i><i></i></div>
-        <h1 class="wordmark">Yard <span>Explorer</span></h1>
-        <button class="about" id="aboutLink">About</button>
+        <div class="logo" aria-hidden="true"><i></i><i class="on"></i><i></i><i class="on"></i><i class="on"></i><i class="on"></i><i></i><i class="on"></i><i class="on"></i></div>
+        <h1 class="wordmark">Yard Explorer</h1>
+        <button class="about label" id="aboutLink">About</button>
       </div>
-      <div class="stats" id="stats">
-        <div class="stat"><b>–</b><small>Squadrats</small></div>
-        <div class="stat"><b>–</b><small>Squadratinhos</small></div>
-        <div class="stat"><b class="hl">–</b><small>Best yard</small></div>
+      <div class="hud" id="stats">
+        <div><span class="label">Squadrats</span><b>–</b></div>
+        <div><span class="label">Squadratinhos</span><b>–</b></div>
+        <div class="hi"><span class="label">Best yard</span><b>–</b></div>
       </div>
       <div class="summary" id="summary">Load a Squadrats KML export to begin.</div>
       <div class="seg tabs">
@@ -225,20 +232,20 @@
       <summary>Next targets</summary>
       <div class="stage-body">
         <label class="check"><input type="checkbox" id="showTargets" checked> Show on the map</label>
-        <div class="sub-head"><span>Grow a yard</span><span>one tile</span></div>
+        <div class="sub-head label"><span>Grow a yard</span><span>one tile</span></div>
         <ol class="targets" id="targets"></ol>
-        <div class="sub-head"><span>Merge yards</span><span>tiles needed</span></div>
+        <div class="sub-head label"><span>Merge yards</span><span>tiles needed</span></div>
         <ol class="targets" id="merges"></ol>
-        <div class="sub-head"><span id="uberName">Übersquadratinho</span><span>tiles needed</span></div>
+        <div class="sub-head label"><span id="uberName">Übersquadratinho</span><span>tiles needed</span></div>
         <ol class="targets" id="uber"></ol>
       </div>
     </details>
 
     <details class="stage" open>
       <summary>Standings</summary>
-      <div class="stage-body" style="padding:0 0 6px">
+      <div class="stage-body" style="padding:0 0 4px">
         <div class="gc-tools">
-          <label class="check"><input type="checkbox" id="showVisited" checked> Show visited tiles</label>
+          <label class="check"><input type="checkbox" id="showVisited" checked> Visited tiles</label>
           <select id="minSize" aria-label="Smallest yard to show">
             <option value="1">All sizes</option>
             <option value="3">3+ tiles</option>
@@ -246,7 +253,7 @@
             <option value="10">10+ tiles</option>
           </select>
         </div>
-        <div class="gc-head"><span>Pos</span><span id="gcName">Yardinho</span><span>Gap</span><span>Tiles</span></div>
+        <div class="gc-head label"><span>#</span><span id="gcName">Yardinho</span><span>Gap</span><span>Tiles</span></div>
       </div>
     </details>
     <ol class="gc" id="list"><div class="empty">No data loaded.</div></ol>
@@ -254,35 +261,38 @@
   <div id="map"></div>
 </div>
 
-<section class="landing" id="landing" hidden>
-  <div class="band"><i></i><i></i><i></i><i></i></div>
+<section class="landing gridded" id="landing" hidden>
   <div class="wrap">
     <div class="topbar">
-      <div class="stripes"><i></i><i></i><i></i><i></i></div>
-      <span class="wordmark">Yard <span>Explorer</span></span>
+      <div class="logo" aria-hidden="true"><i></i><i class="on"></i><i></i><i class="on"></i><i class="on"></i><i class="on"></i><i></i><i class="on"></i><i class="on"></i></div>
+      <span class="wordmark">Yard Explorer</span>
+      <span class="label">For Squadrats riders</span>
     </div>
     <div class="hero">
-      <span class="kicker">A tool for Squadrats riders</span>
-      <h2>Every tile<br><mark>counts.</mark></h2>
-      <p>See every Yard and Yardinho you've built, not just the biggest, ranked and mapped, wherever you've ridden.</p>
-      <div class="cta">
-        <label class="btn go">Open your KML →<input type="file" id="landingFile" accept=".kml" hidden></label>
-        <button class="btn" id="closeLanding" hidden>Back to the map</button>
-        <span class="hint">or drop the file anywhere on this page</span>
+      <div>
+        <span class="label">Yards · Yardinhos · Übersquadrats</span>
+        <h2>Every tile<br><mark>counts.</mark></h2>
+        <p>See every Yard and Yardinho you've built, not just the biggest: ranked, mapped, and with the tiles to ride next.</p>
+        <div class="cta">
+          <label class="btn go">Open your KML →<input type="file" id="landingFile" accept=".kml" hidden></label>
+          <button class="btn" id="closeLanding" hidden>Back to the map</button>
+          <span class="label">or drop the file anywhere</span>
+        </div>
       </div>
+      <div class="mosaic" id="mosaic" aria-hidden="true"></div>
     </div>
     <div class="features">
-      <div class="feature"><div class="no">01</div><h3>The full standings</h3>
-        <p>Squadrats shows only your biggest Yard and Yardinho. Here you get all of them, ranked by size with the gap to the leader.</p></div>
-      <div class="feature"><div class="no">02</div><h3>Your top 10 on the map</h3>
-        <p>Each of your ten biggest gets its own colour and a numbered badge, drawn as outlines so the streets stay readable.</p></div>
-      <div class="feature"><div class="no">03</div><h3>What to ride next</h3>
+      <div class="feature"><span class="chip" style="--c:var(--yellow);--t:#121316">01</span><h3>The full standings</h3>
+        <p>Squadrats shows only your biggest Yard and Yardinho. Here you get all of them, ranked, named and with the gap to the leader.</p></div>
+      <div class="feature"><span class="chip" style="--c:var(--red);--t:#fff">02</span><h3>Your top 10 on the map</h3>
+        <p>Each of your ten biggest gets its own colour and a numbered tile, drawn as outlines so the streets stay readable.</p></div>
+      <div class="feature"><span class="chip" style="--c:var(--signal);--t:#121316">03</span><h3>What to ride next</h3>
         <p>The single tiles that grow your yards most, the gaps that would merge two yards, and how to grow your Übersquadrat.</p></div>
     </div>
-    <div class="stages">
-      <div><span class="kicker">Step 1</span><p>Sign in at <a href="https://squadrats.com" target="_blank" rel="noopener">squadrats.com</a> and open your map.</p></div>
-      <div><span class="kicker">Step 2</span><p>Download the KML export from the panel on the right of the map.</p></div>
-      <div><span class="kicker">Step 3</span><p>Drop it here. After new rides, export again and drop the new file.</p></div>
+    <div class="steps">
+      <div><span class="label">Step 1</span><p>Sign in at <a href="https://squadrats.com" target="_blank" rel="noopener">squadrats.com</a> and open your map.</p></div>
+      <div><span class="label">Step 2</span><p>Download the KML export from the panel on the right of the map.</p></div>
+      <div><span class="label">Step 3</span><p>Drop it here. After new rides, export again and drop the new file.</p></div>
     </div>
     <p class="fine"><strong>Your data stays with you.</strong> Your KML is read in your browser and never uploaded. The browser
       remembers your last export so the map is ready next time. To show place names, the location of each listed yard is
@@ -354,12 +364,19 @@
   function yardLabel(i, fallback = "") {
     const { yards, zoom } = data[layer];
     const name = placeOf(yards[i], zoom), k = placeKey(yards[i], zoom);
-    return `#${i + 1} <span data-place="${k}" data-fallback="${fallback}">${name || fallback}</span>`;
+    return `<b>#${i + 1}</b> <span data-place="${k}" data-fallback="${fallback}">${name || fallback}</span>`;
   }
 
   // The top 10 each get their own colour and a numbered badge.
-  const TOP = ["--yellow", "--red", "--blue", "--violet", "--teal", "--orange", "--sky", "--lime", "--maroon", "--navy"];
+  const TOP = ["--yellow", "--red", "--blue", "--violet", "--teal", "--orange", "--sky", "--brown", "--maroon", "--navy"];
   const colorFor = (i) => css(TOP[i] || "--steel");
+
+  // Dark or light text, whichever reads better on a chip of this colour.
+  function textOn(hex) {
+    const [r, g, b] = [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16) / 255);
+    return 0.2126 * r + 0.7152 * g + 0.0722 * b > 0.5 ? "#121316" : "#ffffff";
+  }
+  const chip = (text, color, cls = "") => `<span class="chip ${cls}" style="--c:${color};--t:${textOn(color)}">${text}</span>`;
   const fmt = (n) => n.toLocaleString("en-US");
 
   function tileBounds(k, z) {
@@ -388,7 +405,7 @@
   // A filled shape with a dark casing under a coloured edge, readable on any part of the map.
   function shape(latlngs, color, { weight = 2.5, fill = 0.25, opacity = 1, casing = true } = {}) {
     const group = L.featureGroup();
-    if (casing) L.polygon(latlngs, { color: css("--ink"), weight: weight + 2.5, opacity: 0.8 * opacity, fill: false, interactive: false }).addTo(group);
+    if (casing) L.polygon(latlngs, { color: css("--casing"), weight: weight + 2.5, opacity: 0.8 * opacity, fill: false, interactive: false }).addTo(group);
     L.polygon(latlngs, { color, weight, opacity, fillColor: color, fillOpacity: fill }).addTo(group);
     return group;
   }
@@ -417,9 +434,9 @@
   function renderStats(name) {
     const r = data.reported, best = layer === "squadratinhos" ? r.yardinho : r.yard;
     $("stats").innerHTML = `
-      <div class="stat"><b>${fmt(data.squadrats.visited.size)}</b><small>Squadrats</small></div>
-      <div class="stat"><b>${fmt(data.squadratinhos.visited.size)}</b><small>Squadratinhos</small></div>
-      <div class="stat"><b class="hl">${fmt(best ?? data[layer].yards[0]?.length ?? 0)}</b><small>Best ${name}</small></div>`;
+      <div><span class="label">Squadrats</span><b>${fmt(data.squadrats.visited.size)}</b></div>
+      <div><span class="label">Squadratinhos</span><b>${fmt(data.squadratinhos.visited.size)}</b></div>
+      <div class="hi"><span class="label">Best ${name}</span><b>${fmt(best ?? data[layer].yards[0]?.length ?? 0)}</b></div>`;
   }
 
   function render() {
@@ -453,7 +470,7 @@
       }, { sticky: true }).addTo(yardLayer);
       if (top) {
         L.marker(labelPoint(tiles, zoom), {
-          icon: L.divIcon({ className: "", html: `<div class="rank-badge" style="--c:${colorFor(i)}">${i + 1}</div>`, iconSize: [26, 26], iconAnchor: [13, 13] }),
+          icon: L.divIcon({ className: "", html: chip(i + 1, colorFor(i), "map-chip"), iconSize: [26, 26], iconAnchor: [13, 13] }),
           zIndexOffset: 500 - i, opacity: dim ? 0.5 : 1,
         }).on("click", () => select(i)).addTo(yardLayer);
       }
@@ -469,11 +486,11 @@
       if (!listed(i)) return hidden++;
       const li = document.createElement("li");
       if (selected === i) li.className = "selected";
-      const badge = i === 0 ? `<em style="background:var(--yellow)">Leader</em>`
-        : home.has(i) ? "" : `<em class="away" title="More than ${REGION_KM} km from your best ${name.toLowerCase()}">Away</em>`;
+      const badge = i === 0 ? `<span class="tag lead">Leader</span>`
+        : home.has(i) ? "" : `<span class="tag" title="More than ${REGION_KM} km from your best ${name.toLowerCase()}">Away</span>`;
       const place = placeOf(tiles, zoom);
-      li.innerHTML = `<span class="pos">${i + 1}</span>
-        <span class="rider"><i style="background:${colorFor(i)}"></i>
+      li.innerHTML = `${i < TOP.length ? chip(i + 1, colorFor(i)) : `<span class="chip plain">${i + 1}</span>`}
+        <span class="rider">
           <span class="place" data-place="${placeKey(tiles, zoom)}" data-fallback="${name}">${place || name}</span>${badge}</span>
         <span class="gap">${i === 0 ? "—" : "+" + fmt(leader - tiles.length)}</span>
         <span class="tiles">${fmt(tiles.length)}</span>`;
@@ -509,8 +526,7 @@
 
   function targetRow(color, gain, what, cost, tiles) {
     const li = document.createElement("li");
-    li.style.setProperty("--c", color);
-    li.innerHTML = `<span class="gain">${gain}</span><span class="what">${what}</span><span class="cost">${cost}</span>`;
+    li.innerHTML = `${chip(gain, color)}<span class="what">${what}</span><span class="cost">${cost}</span>`;
     li.onclick = () => jumpTo(tiles);
     return li;
   }
@@ -528,7 +544,7 @@
     L_.growth ||= Squadrats.growth(L_, SHOWN_TARGETS);
     const { targets, merges } = L_.growth;
     const onMap = $("showTargets").checked;
-    const green = css("--green"), pink = css("--pink"), ink = css("--ink");
+    const green = css("--signal"), pink = css("--pink"), ink = css("--casing");
     const center = (tiles) => yardBounds(tiles, zoom).getCenter();
 
     $("targets").innerHTML = targets.length ? "" : `<li class="none">No single tile grows a ${unit.toLowerCase()} right now.</li>`;
@@ -549,7 +565,7 @@
       $("merges").appendChild(targetRow(pink, `+${m.gain}`, what, plural(m.added.length, "tile"), m.added));
       if (onMap) {
         shape(outlineLatLngs(m.added, zoom), pink, { weight: 2, fill: 0.5 }).addTo(targetLayer);
-        pill(center(m.added), pink, `⇄ ${fmt(m.size)}`, m.added);
+        pill(center(m.added), pink, `↔ ${fmt(m.size)}`, m.added);
       }
     }
 
@@ -680,6 +696,19 @@
 
   // Landing page: shown until an export is loaded, and from the "About" link.
   const landing = $("landing");
+  // The hero mosaic: v = visited, y = yard, 1-3 = top yards, t = a target tile, . = empty.
+  $("mosaic").innerHTML = [
+    "..vv....vvv...",
+    ".vvvv..vvvvv..",
+    "vvyyyv.v222vv.",
+    "vy111yvvv22vv.",
+    "vy1111tvvvvv..",
+    "vvy111yvv.vv..",
+    ".vyyyyv..vvvv.",
+    "..vvvv..vv33v.",
+    "...vv..vvv33vv",
+    "........vvvv..",
+  ].join("").split("").map((c) => `<i class="${{ v: "v", y: "y", 1: "r1", 2: "r2", 3: "r3", t: "t" }[c] || ""}"></i>`).join("");
   $("landingFile").onchange = (e) => e.target.files[0] && openFile(e.target.files[0]);
   $("aboutLink").onclick = () => {
     $("closeLanding").hidden = !data;
