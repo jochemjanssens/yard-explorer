@@ -5,14 +5,14 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Yard Explorer</title>
 <link rel="icon" href="favicon.svg" type="image/svg+xml">
-<meta name="description" content="Rank all your Squadrats Yards and Yardinhos, see what your last ride added, and plan road-bike loops through new tiles.">
+<meta name="description" content="See all your Squadrats Yards and Yardinhos ranked, with your top 10 highlighted on the map.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:ital,wght@0,500;0,600;0,700;0,800;1,700;1,800;1,900&family=Barlow:wght@400;500;600&display=swap">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
 <style>
   /* Top 10 = yellow, red, blue, violet, teal, orange, sky, lime, maroon, navy: neighbouring ranks contrast most,
-     and every one carries a numbered badge on the map. Green = new tiles; pink = planned route. */
+     and every one carries a numbered badge on the map. Green and pink are only decoration (stripes, landing page). */
   :root {
     --yellow: #ffd400; --red: #e4002b; --blue: #0050ff; --violet: #a21fe0; --teal: #00a3a3; --orange: #ff7a00; --sky: #00b4ff; --lime: #8fd400; --maroon: #7a1f3d; --navy: #1d2b7a; --green: #00a651; --pink: #ff2d8a; --steel: #3d4450;
     --ink: #0d0e10; --ink-2: #16181b; --ink-3: #22252a; --ink-line: #2e3238;
@@ -81,14 +81,6 @@
   details.stage[open] > summary::after { content: "–"; }
   .stage-body { padding: 0 18px 16px; }
 
-  .form { display: grid; grid-template-columns: 88px 1fr; gap: 10px 12px; align-items: center; }
-  .form > span, .form > label { font: 600 12px var(--display); letter-spacing: .12em; text-transform: uppercase; color: var(--chalk-muted); }
-  .form input, .form select { width: 100%; padding: 7px 8px; background: var(--ink-2); border: 1px solid var(--ink-line);
-    border-radius: 0; color: var(--chalk); }
-  .form input:focus, .form select:focus { outline: none; border-color: var(--yellow); }
-  .unit { position: relative; }
-  .unit::after { content: "KM"; position: absolute; right: 9px; top: 50%; transform: translateY(-50%);
-    font: 600 12px var(--display); letter-spacing: .1em; color: var(--chalk-muted); pointer-events: none; }
 
   .btn { padding: 9px 14px; background: transparent; border: 1px solid var(--ink-line); color: var(--chalk); cursor: pointer;
     font: 700 14px var(--display); letter-spacing: .1em; text-transform: uppercase; border-radius: 0; }
@@ -96,31 +88,9 @@
   .btn.go { background: var(--yellow); border-color: var(--yellow); color: var(--ink); }
   .btn.go:hover:not(:disabled) { background: #ffe14d; border-color: #ffe14d; }
   .btn:disabled { opacity: .35; cursor: default; }
-  .btn.picking { border-color: var(--yellow); color: var(--yellow); }
-  .form .btn { text-align: left; font: 500 13px var(--body); letter-spacing: 0; text-transform: none; padding: 7px 8px; background: var(--ink-2); }
-  .actions { display: flex; gap: 8px; margin-top: 14px; align-items: center; }
-  .status { font-size: 12px; color: var(--chalk-muted); margin-top: 10px; }
   .check { display: flex; gap: 8px; align-items: center; font-size: 12px; color: var(--chalk-muted); cursor: pointer; }
   .check input { accent-color: var(--yellow); }
 
-  table.changes { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; margin-top: 4px; }
-  table.changes td { padding: 6px 0; border-bottom: 1px solid var(--ink-3); font-size: 13px; }
-  table.changes td:first-child { font: 600 12px var(--display); letter-spacing: .12em; text-transform: uppercase; color: var(--chalk-muted); }
-  table.changes td:nth-child(2) { text-align: right; color: var(--chalk-muted); }
-  table.changes td.delta { text-align: right; width: 56px; font: 700 17px var(--display); color: var(--green); }
-  table.changes td.delta.none { color: var(--ink-line); }
-
-  .routes { list-style: none; padding: 0; margin: 12px 0 0; }
-  .routes li { display: grid; grid-template-columns: 44px 1fr auto; align-items: center; gap: 8px; padding: 9px 10px;
-    border: 1px solid var(--ink-line); margin-top: -1px; cursor: pointer; }
-  .routes li:hover { background: var(--ink-2); }
-  .routes li.selected { border-color: var(--pink); position: relative; background: var(--ink-2); }
-  .routes .tag { font: italic 800 14px var(--display); text-transform: uppercase; color: var(--chalk-muted); }
-  .routes li.selected .tag { color: var(--pink); }
-  .routes .meta { font-size: 13px; color: var(--chalk-muted); font-variant-numeric: tabular-nums; }
-  .routes .meta b { color: var(--chalk); font-weight: 600; }
-  .routes .gain { font: 700 22px/1 var(--display); text-align: right; }
-  .routes .gain small { display: block; font: 600 10px var(--display); letter-spacing: .12em; color: var(--chalk-muted); text-transform: uppercase; }
 
   /* Standings, GC style */
   .gc-head { display: grid; grid-template-columns: 34px 1fr 64px 52px; gap: 8px; padding: 0 18px 6px;
@@ -143,7 +113,6 @@
 
   /* Leaflet chrome in the same language */
   .leaflet-container { font-family: var(--body); }
-  .leaflet-container.pick { cursor: crosshair; }
   .leaflet-bar { border: 0 !important; box-shadow: none !important; }
   .leaflet-bar a { background: var(--ink) !important; color: var(--chalk) !important; border-radius: 0 !important;
     border-bottom: 1px solid var(--ink-line) !important; }
@@ -152,7 +121,6 @@
   .leaflet-tooltip-top:before, .leaflet-tooltip-bottom:before, .leaflet-tooltip-left:before, .leaflet-tooltip-right:before { display: none; }
   .rank-badge { width: 26px; height: 26px; display: grid; place-items: center; background: var(--ink); color: var(--chalk);
     border: 3px solid var(--c); font: italic 800 15px/1 var(--display); box-shadow: 0 1px 4px rgba(0,0,0,.35); cursor: pointer; }
-  .start-pin { width: 22px; height: 22px; background: var(--ink); border: 3px solid var(--yellow); transform: rotate(45deg); }
 
   .drop { position: fixed; inset: 0; z-index: 2000; display: none; align-items: center; justify-content: center;
     background: rgba(13,14,16,.82); color: var(--yellow); font: italic 900 clamp(32px, 6vw, 64px) var(--display);
@@ -232,44 +200,8 @@
       <div class="file"><label>Open KML<input type="file" id="file" accept=".kml"></label> or drop one anywhere</div>
     </header>
 
-    <details class="stage" id="changesPanel" open hidden>
-      <summary><span class="no">01</span>Last ride</summary>
-      <div class="stage-body">
-        <div class="status" id="changesInfo" style="margin:0 0 6px"></div>
-        <table class="changes" id="changesTable"></table>
-        <div class="actions">
-          <label class="check"><input type="checkbox" id="showNew" checked> Highlight new tiles</label>
-          <button class="btn" id="zoomNew" style="margin-left:auto">Zoom in</button>
-        </div>
-      </div>
-    </details>
-
     <details class="stage" open>
-      <summary><span class="no">02</span>Plan a route</summary>
-      <div class="stage-body">
-        <div class="form">
-          <span>Start</span><button class="btn" id="pickStart">Click to set on map</button>
-          <label for="distance">Distance</label><div class="unit"><input id="distance" type="number" min="10" max="250" step="5" value="60"></div>
-          <label for="target">Hunt</label>
-          <select id="target"><option value="squadrats">Squadrats</option><option value="squadratinhos">Squadratinhos</option></select>
-          <label for="profile">Roads</label>
-          <select id="profile">
-            <option value="fastbike">Road bike</option>
-            <option value="fastbike-lowtraffic">Road bike, quieter roads</option>
-            <option value="fastbike-verylowtraffic">Road bike, quietest roads</option>
-          </select>
-        </div>
-        <div class="actions">
-          <button class="btn go" id="planBtn" disabled>Plan route</button>
-          <button class="btn" id="gpxBtn" disabled>GPX</button>
-        </div>
-        <div class="status" id="planStatus">Set a start point, then plan.</div>
-        <ul class="routes" id="routes"></ul>
-      </div>
-    </details>
-
-    <details class="stage" open>
-      <summary><span class="no">03</span>Standings</summary>
+      <summary>Standings</summary>
       <div class="stage-body" style="padding:0 0 6px">
         <label class="check" style="padding:0 18px 12px"><input type="checkbox" id="showVisited" checked> Show visited tiles</label>
         <div class="gc-head"><span>Pos</span><span id="gcName">Yardinho</span><span>Gap</span><span>Tiles</span></div>
@@ -290,8 +222,7 @@
     <div class="hero">
       <span class="kicker">A tool for Squadrats riders</span>
       <h2>Every tile<br><mark>counts.</mark></h2>
-      <p>See every Yard and Yardinho you've built, not just the biggest. See what your last ride added.
-        Plan road-bike loops through tiles you haven't ridden yet.</p>
+      <p>See every Yard and Yardinho you've built, not just the biggest, ranked and mapped, wherever you've ridden.</p>
       <div class="cta">
         <label class="btn go">Open your KML →<input type="file" id="landingFile" accept=".kml" hidden></label>
         <button class="btn" id="closeLanding" hidden>Back to the map</button>
@@ -301,27 +232,25 @@
     <div class="features">
       <div class="feature"><div class="no">01</div><h3>The full standings</h3>
         <p>Squadrats shows only your biggest Yard and Yardinho. Here you get all of them, ranked by size with the gap to the leader.</p></div>
-      <div class="feature"><div class="no">02</div><h3>What your last ride added</h3>
-        <p>Drop your newest export to see the new tiles on the map, and how your Yard, Yardinho and Übersquadrat changed.</p></div>
-      <div class="feature"><div class="no">03</div><h3>Routes through new tiles</h3>
-        <p>Pick a start and a distance. You get a loop on road-bike roads that crosses as many new tiles as possible, ready as GPX.</p></div>
+      <div class="feature"><div class="no">02</div><h3>Your top 10 on the map</h3>
+        <p>Each of your ten biggest gets its own colour and a numbered badge, drawn as outlines so the streets stay readable.</p></div>
+      <div class="feature"><div class="no">03</div><h3>Every ride, everywhere</h3>
+        <p>Yards from trips far from home are on the map too, tagged Away in the standings. Click one to jump there.</p></div>
     </div>
     <div class="stages">
       <div><span class="kicker">Step 1</span><p>Sign in at <a href="https://squadrats.com" target="_blank" rel="noopener">squadrats.com</a> and open your map.</p></div>
       <div><span class="kicker">Step 2</span><p>Download the KML export from the panel on the right of the map.</p></div>
-      <div><span class="kicker">Step 3</span><p>Drop it here. After your next ride, do it again to see what changed.</p></div>
+      <div><span class="kicker">Step 3</span><p>Drop it here. After new rides, export again and drop the new file.</p></div>
     </div>
-    <p class="fine"><strong>Your data stays with you.</strong> Your KML is read in your browser and never uploaded. The browser keeps
-      your last two exports so it can compare them. Route planning sends only the start point and waypoints to the public
-      <a href="https://brouter.de" target="_blank" rel="noopener">BRouter</a> server. Not affiliated with Squadrats.</p>
+    <p class="fine"><strong>Your data stays with you.</strong> Your KML is read in your browser and never uploaded. The browser
+      remembers your last export so the map is ready next time. Not affiliated with Squadrats.</p>
   </div>
 </section>
 <div class="drop" id="drop">Drop your KML</div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
-<!-- Bump ?v= whenever squadrats.js or planner.js change, so browsers don't pair a new page with cached old scripts. -->
+<!-- Bump ?v= whenever squadrats.js changes, so browsers don't pair a new page with a cached old script. -->
 <script src="squadrats.js?v=2026-10-25"></script>
-<script src="planner.js?v=2026-10-25"></script>
 <script>
   const css = (v) => getComputedStyle(document.documentElement).getPropertyValue(v).trim();
   const $ = (id) => document.getElementById(id);
@@ -332,8 +261,6 @@
 
   let data = null, layer = "squadratinhos", selected = null;
   let visitedLayer = L.layerGroup().addTo(map), yardLayer = L.layerGroup().addTo(map);
-  const changesLayer = L.layerGroup().addTo(map);
-  let prev = null, changes = null, current = { kml: null, name: null }, changeFocus = false;
 
   // The top 10 each get their own colour and a numbered badge.
   const TOP = ["--yellow", "--red", "--blue", "--violet", "--teal", "--orange", "--sky", "--lime", "--maroon", "--navy"];
@@ -451,14 +378,13 @@
 
     const reportedYard = layer === "squadratinhos" ? data.reported.yardinho : data.reported.yard;
     const check = reportedYard === leader ? "matches Squadrats ✓" : `Squadrats reports ${reportedYard}`;
-    drawChanges();
     renderStats(name.toLowerCase());
     $("summary").textContent = `${yards.length} ${name.toLowerCase()}s · top ${TOP.length} in colour · Away = more than ${REGION_KM} km from your best · ${check}`;
   }
 
   function select(i) {
-    if (picking) return; // the click is setting the route start instead
     selected = selected === i ? null : i;
+    userMoved = true; // keep the view on the yard picked from the standings
     render();
     lockView();
     if (selected !== null) map.fitBounds(yardBounds(data[layer].yards[i], data[layer].zoom), { padding: [60, 60], maxZoom: 16 });
@@ -469,15 +395,17 @@
     const reg = region();
     if (!reg) return;
     const allowed = L.latLngBounds(reg.bounds.getSouthWest(), reg.bounds.getNorthEast());
-    if (routeLine) allowed.extend(routeLine.getBounds().pad(0.1));
-    if (changeFocus && changes?.bounds[layer]) allowed.extend(changes.bounds[layer].pad(0.1));
     if (selected !== null) allowed.extend(yardBounds(data[layer].yards[selected], data[layer].zoom).pad(0.5));
     map.setMinZoom(0).setMaxBounds(null);
     map.setMinZoom(map.getBoundsZoom(allowed)).setMaxBounds(allowed.pad(0.2));
   }
 
-  let pendingFocus = false;
-  new ResizeObserver(() => pendingFocus && focusRegion()).observe(map.getContainer());
+  // Re-frame home when the map's size changes, until the viewer has moved the map themselves.
+  let pendingFocus = false, userMoved = false;
+  new ResizeObserver(() => (pendingFocus || !userMoved) && data && focusRegion()).observe(map.getContainer());
+  for (const ev of ["mousedown", "wheel", "touchstart", "keydown"]) {
+    map.getContainer().addEventListener(ev, () => (userMoved = true), { passive: true });
+  }
 
   function focusRegion() {
     const reg = region();
@@ -486,78 +414,17 @@
     // Still no size (e.g. a tab opened in the background): frame it once the map gets one.
     if (!map.getSize().x) return (pendingFocus = true);
     pendingFocus = false;
+    userMoved = false;
     lockView();
     map.fitBounds(reg.view, { animate: false });
   }
 
-  // ---- Changes between the two most recent exports ----
-  const exportDate = (name) => {
-    const m = (name || "").match(/(\d{4})-(\d{2})-(\d{2})/);
-    return m ? new Date(+m[1], m[2] - 1, +m[3]).toLocaleDateString(undefined, { day: "numeric", month: "short" }) : name;
-  };
-
-  function computeChanges(prevName, curName) {
-    if (!prev) return null;
-    const newTiles = {}, bounds = {};
-    for (const l of ["squadrats", "squadratinhos"]) {
-      newTiles[l] = [...data[l].visited].filter((k) => !prev[l].visited.has(k));
-      bounds[l] = newTiles[l].length ? yardBounds(newTiles[l], data[l].zoom) : null;
-    }
-    return { newTiles, bounds, prevName, curName };
-  }
-
-  function renderChanges() {
-    $("changesPanel").hidden = false;
-    if (!changes) {
-      $("changesInfo").textContent = "Drop a newer Squadrats export to see what your latest ride changed.";
-      $("changesTable").innerHTML = "";
-      $("zoomNew").disabled = true;
-      return;
-    }
-    const total = changes.newTiles.squadrats.length + changes.newTiles.squadratinhos.length;
-    $("changesInfo").textContent = `${exportDate(changes.prevName)} → ${exportDate(changes.curName)}${total ? "" : " · no new tiles"}`;
-    const rows = [
-      ["Squadrats", "squadrats"], ["Squadratinhos", "squadratinhos"], ["Yard", "yard"],
-      ["Yardinho", "yardinho"], ["Übersquadrat", "ubersquadrat"], ["Übersquadratinho", "ubersquadratinho"],
-    ];
-    $("changesTable").innerHTML = rows.map(([label, k]) => {
-      const before = prev.reported[k] ?? 0, after = data.reported[k] ?? 0, d = after - before;
-      return `<tr><td>${label}</td><td>${fmt(before)} → ${fmt(after)}</td>
-        <td class="delta ${d ? "" : "none"}">${d > 0 ? "+" : ""}${d || "0"}</td></tr>`;
-    }).join("");
-    $("zoomNew").disabled = !changes.bounds[layer];
-  }
-
-  function drawChanges() {
-    changesLayer.clearLayers();
-    if (!changes || !$("showNew").checked) return;
-    const z = data[layer].zoom;
-    if (changes.newTiles[layer].length) {
-      shape(outlineLatLngs(changes.newTiles[layer], z), css("--green"), { weight: 2.5, fill: 0.45 }).addTo(changesLayer);
-    }
-    $("zoomNew").disabled = !changes.bounds[layer];
-  }
-
-  $("showNew").onchange = drawChanges;
-  $("zoomNew").onclick = () => {
-    if (!changes?.bounds[layer]) return;
-    changeFocus = true; // new tiles may lie outside the home region
-    lockView();
-    map.fitBounds(changes.bounds[layer], { padding: [60, 60], maxZoom: 15 });
-  };
-
-  function load(kml, previousKml = null, names = {}) {
+  function load(kml) {
     data = Squadrats.analyse(kml);
     landing.hidden = true;
-    prev = previousKml ? Squadrats.analyse(previousKml) : null;
-    current = { kml, name: names.current || null };
-    changes = computeChanges(names.previous, names.current);
-    changeFocus = false;
     selected = null;
-    renderChanges();
     render();
     focusRegion();
-    $("planBtn").disabled = !start;
   }
 
   document.querySelectorAll(".tabs button").forEach((b) => (b.onclick = () => {
@@ -570,100 +437,6 @@
   $("showVisited").onchange = render;
   $("file").onchange = (e) => e.target.files[0] && openFile(e.target.files[0]);
 
-  // ---- Route planner ----
-  const routeLayer = L.layerGroup().addTo(map);
-  let start = null, startMarker = null, picking = false, routes = [], shownRoute = null, routeLine = null;
-  const startIcon = L.divIcon({ className: "", html: '<div class="start-pin"></div>', iconSize: [22, 22], iconAnchor: [11, 11] });
-
-  function setStart(latlng) {
-    start = [latlng.lat, latlng.lng];
-    if (!startMarker) {
-      startMarker = L.marker(latlng, { draggable: true, title: "Start", icon: startIcon, zIndexOffset: 1000 }).addTo(map)
-        .on("dragend", (e) => setStart(e.target.getLatLng()));
-    } else startMarker.setLatLng(latlng);
-    $("pickStart").textContent = `${start[0].toFixed(4)}, ${start[1].toFixed(4)}`;
-    $("planBtn").disabled = !data;
-  }
-
-  function setPicking(on) {
-    picking = on;
-    $("pickStart").classList.toggle("picking", on);
-    map.getContainer().classList.toggle("pick", on);
-    if (on) $("pickStart").textContent = "Click the map…";
-    else if (!start) $("pickStart").textContent = "Click to set on map";
-  }
-
-  $("pickStart").onclick = () => setPicking(!picking);
-  map.on("click", (e) => {
-    if (!picking) return;
-    setPicking(false);
-    setStart(e.latlng);
-  });
-
-  function showRoute(i) {
-    shownRoute = i;
-    const r = routes[i], target = $("target").value, z = data[target].zoom;
-    routeLayer.clearLayers();
-    if (r.newTiles[target].length) {
-      L.polygon(outlineLatLngs(r.newTiles[target], z), { color: css("--pink"), weight: 1.5, opacity: 0.9, dashArray: "4 3",
-        fillColor: css("--pink"), fillOpacity: 0.2, interactive: false }).addTo(routeLayer);
-    }
-    L.polyline(r.coords, { color: "#fff", weight: 8, opacity: 0.9, interactive: false }).addTo(routeLayer);
-    routeLine = L.polyline(r.coords, { color: css("--pink"), weight: 4.5, opacity: 1 }).addTo(routeLayer);
-    lockView();
-    map.fitBounds(routeLine.getBounds(), { padding: [30, 30] });
-    renderRoutes();
-    $("gpxBtn").disabled = false;
-  }
-
-  function renderRoutes() {
-    const list = $("routes"), target = $("target").value;
-    const label = target === "squadrats" ? "new squadrats" : "new squadratinhos";
-    list.innerHTML = "";
-    routes.forEach((r, i) => {
-      const li = document.createElement("li");
-      if (i === shownRoute) li.className = "selected";
-      li.innerHTML = `<span class="tag">${i === 0 ? "Best" : "Alt " + i}</span>
-        <span class="meta"><b>${(r.length / 1000).toFixed(1)} km</b> · ↑ ${fmt(r.ascend)} m</span>
-        <span class="gain">${r.newTiles[target].length}<small>${label}</small></span>`;
-      li.onclick = () => showRoute(i);
-      list.appendChild(li);
-    });
-  }
-
-  $("planBtn").onclick = async () => {
-    const distanceKm = Number($("distance").value);
-    if (!start || !(distanceKm >= 10)) return;
-    $("planBtn").disabled = true;
-    routes = [];
-    renderRoutes();
-    try {
-      routes = await Planner.plan({
-        start, distanceKm, data, target: $("target").value, profile: $("profile").value,
-        onProgress: (m) => ($("planStatus").textContent = m),
-      });
-      $("planStatus").textContent = `${routes.length} loops found. Click one to show it.`;
-      showRoute(0);
-    } catch (e) {
-      $("planStatus").textContent = `Could not plan a route: ${e.message}`;
-    } finally {
-      $("planBtn").disabled = false;
-    }
-  };
-
-  $("target").onchange = () => shownRoute !== null && showRoute(shownRoute);
-
-  $("gpxBtn").onclick = () => {
-    const r = routes[shownRoute];
-    if (!r) return;
-    const name = `Squadrats loop ${(r.length / 1000).toFixed(0)} km`;
-    const a = document.createElement("a");
-    a.href = URL.createObjectURL(new Blob([Planner.toGpx(r.coords, name)], { type: "application/gpx+xml" }));
-    a.download = name.replace(/\s+/g, "-").toLowerCase() + ".gpx";
-    a.click();
-    URL.revokeObjectURL(a.href);
-  };
-
   const drop = $("drop");
   addEventListener("dragover", (e) => { e.preventDefault(); drop.classList.add("show"); });
   addEventListener("dragleave", (e) => { if (!e.relatedTarget) drop.classList.remove("show"); });
@@ -673,37 +446,30 @@
     if (e.dataTransfer.files[0]) openFile(e.dataTransfer.files[0]);
   });
 
-  // Without the local server (e.g. on GitHub Pages) the browser remembers the last two exports instead.
+  // Without the local server (e.g. on GitHub Pages) the browser remembers the last export instead.
   const STORE = "yard-explorer-exports";
   const stored = () => { try { return JSON.parse(localStorage.getItem(STORE)) || {}; } catch { return {}; } };
 
   function remember(name, kml) {
-    const s = stored();
-    if (s.latest?.kml === kml) return s;
-    const next = { previous: s.latest || null, latest: { name, kml } };
-    try { localStorage.setItem(STORE, JSON.stringify(next)); } catch { /* storage full or blocked */ }
-    return next;
+    try { localStorage.setItem(STORE, JSON.stringify({ latest: { name, kml } })); } catch { /* storage full or blocked */ }
   }
 
-  // Load the newest export from exports/ and compare it with the one before.
+  // Load the newest export from exports/ (local server only).
   async function loadExports() {
     const names = await fetch("exports.json").then((r) => (r.ok ? r.json() : [])).catch(() => []);
     if (!Array.isArray(names) || !names.length) return false;
-    const [curName, prevName] = [names.at(-1), names.at(-2)];
-    const get = (n) => (n ? fetch("exports/" + encodeURIComponent(n)).then((r) => r.text()) : null);
-    const [cur, prv] = await Promise.all([get(curName), get(prevName)]);
-    load(cur, prv, { current: curName, previous: prevName });
+    load(await fetch("exports/" + encodeURIComponent(names.at(-1))).then((r) => r.text()));
     return true;
   }
 
   function loadStored() {
     const s = stored();
     if (!s.latest) return false;
-    load(s.latest.kml, s.previous?.kml, { current: s.latest.name, previous: s.previous?.name });
+    load(s.latest.kml);
     return true;
   }
 
-  // Save a dropped export (into exports/ locally, or the browser otherwise), then compare.
+  // Save a dropped export (into exports/ locally, or the browser otherwise), then show it.
   async function openFile(file) {
     const text = await file.text();
     // Name it by date (squadrats-YYYY-MM-DD.kml), falling back to when the file was downloaded.
@@ -713,8 +479,8 @@
     const saved = await fetch("exports/" + encodeURIComponent(name), { method: "PUT", body: text })
       .then((r) => r.ok).catch(() => false);
     if (saved && (await loadExports())) return;
-    const s = remember(name, text);
-    load(s.latest.kml, s.previous?.kml, { current: s.latest.name, previous: s.previous?.name });
+    remember(name, text);
+    load(text);
   }
 
   // Landing page: shown until an export is loaded, and from the "About" link.
