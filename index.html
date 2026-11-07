@@ -5,17 +5,19 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Yard Explorer</title>
 <link rel="icon" href="favicon.svg" type="image/svg+xml">
-<meta name="description" content="See all your Squadrats Yards and Yardinhos ranked, with your top 10 highlighted on the map.">
+<meta name="description" content="See all your Squadrats Yards and Yardinhos ranked, with your top 20 highlighted on the map.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Space+Grotesk:wght@400;500;600;700&display=swap">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
 <style>
   /* Tile grid: everything snaps to squares. One signal colour (electric green) for the interface;
-     the ten rank colours carry meaning on the map, so they stay the same in light and dark mode. */
+     the twenty rank colours carry meaning on the map, so they stay the same in light and dark mode. */
   :root {
     --yellow: #ffd400; --red: #e4002b; --blue: #0050ff; --violet: #a21fe0; --teal: #00a3a3;
     --orange: #ff7a00; --sky: #00b4ff; --brown: #8d5a2b; --maroon: #7a1f3d; --navy: #1d2b7a;
+    --magenta: #f032e6; --olive: #7d7d00; --salmon: #ff8f7a; --indigo: #4b1d9e; --ochre: #c9a227;
+    --sea: #2e8b57; --lilac: #c79bff; --slate: #4a6d8c; --copper: #b5651d; --rose: #c2185b;
     --steel: #5b6270;
     --signal: #00e676; --signal-text: #00813b;
     --bg: #f4f4f0; --panel: #fbfbf8; --hover: #ecece6; --ink: #121316; --muted: #6a6c71;
@@ -303,8 +305,8 @@
     <div class="features">
       <div class="feature"><span class="chip" style="--c:var(--yellow)"></span><h3>The full standings</h3>
         <p>Squadrats shows only your biggest Yard and Yardinho. Here you get all of them, ranked, named and with the gap to the leader.</p></div>
-      <div class="feature"><span class="chip" style="--c:var(--red)"></span><h3>Your top 10 on the map</h3>
-        <p>Each of your ten biggest gets its own colour and a numbered tile, drawn as outlines so the streets stay readable.</p></div>
+      <div class="feature"><span class="chip" style="--c:var(--red)"></span><h3>Your top 20 on the map</h3>
+        <p>Each of your twenty biggest gets its own colour and a numbered tile, drawn as outlines so the streets stay readable.</p></div>
       <div class="feature"><span class="chip" style="--c:var(--signal)"></span><h3>Every ride, everywhere</h3>
         <p>Yards from trips far from home are on the map too, tagged Away in the standings. Click one to jump there.</p></div>
     </div>
@@ -379,8 +381,9 @@
     return `<b>#${i + 1}</b> <span data-place="${k}" data-fallback="${fallback}">${name || fallback}</span>`;
   }
 
-  // The top 10 each get their own colour and a numbered badge.
-  const TOP = ["--yellow", "--red", "--blue", "--violet", "--teal", "--orange", "--sky", "--brown", "--maroon", "--navy"];
+  // The top 20 each get their own colour and a numbered badge; ranks next to each other contrast most.
+  const TOP = ["--yellow", "--red", "--blue", "--violet", "--teal", "--orange", "--sky", "--brown", "--maroon", "--navy",
+    "--magenta", "--olive", "--salmon", "--indigo", "--ochre", "--sea", "--lilac", "--slate", "--copper", "--rose"];
   const colorFor = (i) => css(TOP[i] || "--steel");
 
   // Dark or light text, whichever reads better on a chip of this colour.
