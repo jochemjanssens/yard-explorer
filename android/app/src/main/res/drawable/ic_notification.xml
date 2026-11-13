@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp" android:height="24dp" android:viewportWidth="24" android:viewportHeight="24">
+    <!-- the 3x3 tile mark, in white: Android tints notification icons -->
+    <path android:fillColor="#FFFFFF"
+        android:pathData="M8.5,3h3v3h-3z M3,8.5h3v3h-3z M8.5,8.5h3v3h-3z M14,8.5h3v3h-3z M8.5,14h3v3h-3z M14,14h3v3h-3z" />
+</vector>

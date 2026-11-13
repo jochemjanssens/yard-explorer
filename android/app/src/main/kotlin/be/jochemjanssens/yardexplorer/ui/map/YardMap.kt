@@ -22,11 +22,15 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
+import be.jochemjanssens.yardexplorer.model.Layer
 import be.jochemjanssens.yardexplorer.model.Squadrats
+import be.jochemjanssens.yardexplorer.route.RouteStatus
+import be.jochemjanssens.yardexplorer.route.RouteUi
 import be.jochemjanssens.yardexplorer.model.Tile
 import be.jochemjanssens.yardexplorer.ui.theme.Ink
 import be.jochemjanssens.yardexplorer.ui.theme.Signal
@@ -34,6 +38,9 @@ import be.jochemjanssens.yardexplorer.ui.theme.Steel
 import be.jochemjanssens.yardexplorer.ui.theme.hex
 import be.jochemjanssens.yardexplorer.ui.theme.rankColor
 import be.jochemjanssens.yardexplorer.ui.theme.textOn
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.withContext
 import org.maplibre.android.MapLibre
 import org.maplibre.android.camera.CameraUpdateFactory
 import org.maplibre.android.geometry.LatLng
@@ -60,7 +67,9 @@ import org.maplibre.android.style.layers.PropertyFactory.iconAllowOverlap
 import org.maplibre.android.style.layers.PropertyFactory.iconIgnorePlacement
 import org.maplibre.android.style.layers.PropertyFactory.iconImage
 import org.maplibre.android.style.layers.PropertyFactory.iconOpacity
+import org.maplibre.android.style.layers.PropertyFactory.lineCap
 import org.maplibre.android.style.layers.PropertyFactory.lineColor
+import org.maplibre.android.style.layers.PropertyFactory.lineJoin
 import org.maplibre.android.style.layers.PropertyFactory.lineDasharray
 import org.maplibre.android.style.layers.PropertyFactory.lineOpacity
 import org.maplibre.android.style.layers.PropertyFactory.lineWidth
@@ -95,6 +104,9 @@ fun YardMap(
   selected: Int?,
   frameHome: Int,
   here: Location?,
+  route: RouteUi,
+  /** Bumped to start following the position again (after the locate button, or a new route). */
+  followKey: Int,
   topPadding: Dp,
   bottomPadding: Dp,
   onYardClick: (Int) -> Unit,
@@ -218,6 +230,54 @@ fun YardMap(
     m.animateCamera(fit(bounds, density, topPadding, bottomPadding, extra = 48f), 600)
   }
 
+  // While recording, the map follows your position, until you move the map yourself (the locate button resumes).
+  var follow by remember { mutableStateOf(true) }
+  LaunchedEffect(followKey) { follow = true }
+  LaunchedEffect(libre) {
+    libre?.addOnCameraMoveStartedListener { reason ->
+      if (reason == MapLibreMap.OnCameraMoveStartedListener.REASON_API_GESTURE) follow = false
+    }
+  }
+  LaunchedEffect(here, route.status, follow) {
+    val m = libre ?: return@LaunchedEffect
+    val position = here ?: return@LaunchedEffect
+    if (route.status == RouteStatus.RECORDING && follow) {
+      m.easeCamera(CameraUpdateFactory.newLatLng(LatLng(position.latitude, position.longitude)), 700)
+    }
+  }
+
+  // When a route ends, zoom out to show all of it, clear of the status card.
+  LaunchedEffect(libre, route.status) {
+    val m = libre ?: return@LaunchedEffect
+    val track = route.track ?: return@LaunchedEffect
+    if (route.status != RouteStatus.FINISHED || track.points.size < 2) return@LaunchedEffect
+    val bounds = LatLngBounds.from(
+      track.points.maxOf { it.lat }, track.points.maxOf { it.lon }, track.points.minOf { it.lat }, track.points.minOf { it.lon },
+    )
+    m.animateCamera(fit(bounds, density, topPadding, bottomPadding + 150.dp, extra = 40f), 900)
+  }
+
+  // The route being recorded: its line, and the new tiles crossed so far (for the layer shown). Rebuilt a moment after
+  // the last GPS fix, off the main thread, from copies taken here (the track changes on the main thread).
+  LaunchedEffect(style, route.tick, route.status, zoom) {
+    val s = style ?: return@LaunchedEffect
+    val track = route.track
+    if (track == null) {
+      s.getSourceAs<GeoJsonSource>("route-line")?.setGeoJson(EMPTY_GEOJSON)
+      s.getSourceAs<GeoJsonSource>("route-new")?.setGeoJson(EMPTY_GEOJSON)
+      return@LaunchedEffect
+    }
+    delay(250)
+    val layer = Layer.entries.first { it.zoom == zoom }
+    val lonLat = DoubleArray(track.points.size * 2).also { out ->
+      track.points.forEachIndexed { i, p -> out[2 * i] = p.lon; out[2 * i + 1] = p.lat }
+    }
+    val newTiles = track.newTiles.getValue(layer).toList()
+    val (lineJson, tilesJson) = withContext(Dispatchers.Default) { routeLineJson(lonLat) to tilesJson(newTiles, zoom) }
+    s.getSourceAs<GeoJsonSource>("route-line")?.setGeoJson(lineJson)
+    s.getSourceAs<GeoJsonSource>("route-new")?.setGeoJson(tilesJson)
+  }
+
   // Your location: MapLibre's dot, plus the tile you're in (green and dashed when it's new).
   var hadFix by remember { mutableStateOf(false) }
   LaunchedEffect(style, here, zoom, visited) {
@@ -282,7 +342,7 @@ private fun showLocation(m: MapLibreMap, s: Style, context: Context, here: Locat
 private fun setUpStyle(s: Style, context: Context) {
   val density = context.resources.displayMetrics.density
   for (rank in 0 until TOP) s.addImage("rank-$rank", badge(rank, density))
-  for (id in listOf("visited", "yards", "badges", "here")) s.addSource(GeoJsonSource(id, EMPTY))
+  for (id in listOf("visited", "yards", "badges", "here", "route-new", "route-line")) s.addSource(GeoJsonSource(id, EMPTY))
 
   val ink = Ink.hex()
   s.addLayer(FillLayer("visited-fill", "visited").withProperties(fillColor(ink), fillOpacity(0.1f)))
@@ -296,6 +356,20 @@ private fun setUpStyle(s: Style, context: Context) {
     LineLayer("yard-line", "yards").withProperties(
       lineColor(switchCase(eq(get("top"), true), get("color"), literal(Steel.hex()))),
       lineWidth(2.5f),
+    ),
+  )
+  // The route being recorded: new tiles crossed so far (green, with a dark edge), and the ridden line on top.
+  s.addLayer(FillLayer("route-new-fill", "route-new").withProperties(fillColor(Signal.hex()), fillOpacity(0.45f)))
+  s.addLayer(LineLayer("route-new-casing", "route-new").withProperties(lineColor(ink), lineWidth(5f), lineOpacity(0.8f)))
+  s.addLayer(LineLayer("route-new-line", "route-new").withProperties(lineColor(Signal.hex()), lineWidth(2.5f)))
+  s.addLayer(
+    LineLayer("route-casing", "route-line").withProperties(
+      lineColor("#FFFFFF"), lineWidth(8f), lineOpacity(0.9f), lineCap(Property.LINE_CAP_ROUND), lineJoin(Property.LINE_JOIN_ROUND),
+    ),
+  )
+  s.addLayer(
+    LineLayer("route-line", "route-line").withProperties(
+      lineColor(ink), lineWidth(4f), lineCap(Property.LINE_CAP_ROUND), lineJoin(Property.LINE_JOIN_ROUND),
     ),
   )
   s.addLayer(

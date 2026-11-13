@@ -4,6 +4,7 @@ import android.Manifest
 import android.annotation.SuppressLint
 import android.content.Context
 import android.content.pm.PackageManager
+import android.os.Build
 import android.location.Location
 import android.location.LocationListener
 import android.location.LocationManager
@@ -35,6 +36,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.BottomSheetScaffold
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.SnackbarHost
@@ -44,6 +46,8 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -69,7 +73,13 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.foundation.shape.CircleShape
 import androidx.core.content.ContextCompat
+import be.jochemjanssens.yardexplorer.route.RouteRecorder
+import be.jochemjanssens.yardexplorer.route.RouteService
+import be.jochemjanssens.yardexplorer.route.RouteStatus
+import be.jochemjanssens.yardexplorer.route.RouteUi
+import kotlinx.coroutines.delay
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import be.jochemjanssens.yardexplorer.model.Layer
 import be.jochemjanssens.yardexplorer.ui.map.REGION_KM
@@ -229,6 +239,41 @@ private fun MapScreen(state: YardUiState, vm: YardViewModel, onPickFile: () -> U
   LocationUpdates(tracking) { here = it }
   LaunchedEffect(tracking) { if (!tracking) here = null }
 
+  // Route recording: a foreground service feeds RouteRecorder, so it keeps going with the screen off.
+  val route by RouteRecorder.ui.collectAsStateWithLifecycle()
+  var confirmStop by remember { mutableStateOf(false) }
+  var followKey by remember { mutableIntStateOf(0) }
+  fun startRoute() {
+    RouteService.start(context)
+    tracking = true // show the position dot while recording
+    followKey++
+  }
+  val routePermissions = rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { granted ->
+    if (granted[Manifest.permission.ACCESS_FINE_LOCATION] == true) startRoute()
+    else scope.launch { sheet.snackbarHostState.showSnackbar("Recording a route needs precise location. Allow it in the app's settings.") }
+  }
+  val onRecordClick = {
+    when (route.status) {
+      RouteStatus.RECORDING -> confirmStop = true
+      else -> {
+        val missing = missingRoutePermissions(context)
+        if (missing.isEmpty()) startRoute() else routePermissions.launch(missing)
+      }
+    }
+  }
+  if (confirmStop) {
+    val newTiles = route.track?.newTiles?.get(state.layer)?.size ?: 0
+    AlertDialog(
+      onDismissRequest = { confirmStop = false },
+      shape = RectangleShape,
+      containerColor = c.panel,
+      title = { Text("Stop this route?", fontWeight = FontWeight.SemiBold) },
+      text = { Text("You've crossed $newTiles new ${state.layer.tileName}${if (newTiles == 1) "" else "s"} so far.", color = c.muted) },
+      confirmButton = { TileButton("Stop route", { RouteService.stop(context); confirmStop = false }, signal = true) },
+      dismissButton = { TileButton("Keep going", { confirmStop = false }) },
+    )
+  }
+
   LaunchedEffect(state.message) {
     val m = state.message ?: return@LaunchedEffect
     sheet.snackbarHostState.showSnackbar(m)
@@ -259,26 +304,127 @@ private fun MapScreen(state: YardUiState, vm: YardViewModel, onPickFile: () -> U
         selected = state.selected,
         frameHome = state.frameHome,
         here = here,
+        route = route,
+        followKey = followKey,
         topPadding = statusBar,
         bottomPadding = peek,
         onYardClick = vm::select,
         modifier = Modifier.fillMaxSize(),
       )
-      LocateButton(
-        on = tracking && here != null,
-        waiting = tracking && here == null,
-        onClick = {
-          when {
-            tracking -> tracking = false
-            hasLocationPermission(context) -> tracking = true
-            else -> permission.launch(arrayOf(Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION))
-          }
-        },
-        modifier = Modifier.align(Alignment.TopEnd).padding(top = statusBar + 12.dp, end = 12.dp),
-      )
+      Column(
+        Modifier.align(Alignment.TopEnd).padding(top = statusBar + 12.dp, end = 12.dp),
+        verticalArrangement = Arrangement.spacedBy(10.dp),
+      ) {
+        LocateButton(
+          on = tracking && here != null,
+          waiting = tracking && here == null,
+          onClick = {
+            when {
+              tracking && route.status == RouteStatus.RECORDING -> followKey++ // re-centre instead of switching off mid-route
+              tracking -> tracking = false
+              hasLocationPermission(context) -> tracking = true
+              else -> permission.launch(arrayOf(Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION))
+            }
+          },
+        )
+        RecordButton(recording = route.status == RouteStatus.RECORDING, onClick = { onRecordClick() })
+      }
+      if (route.status != RouteStatus.IDLE) {
+        RouteHud(
+          route = route,
+          layer = state.layer,
+          onStop = { confirmStop = true },
+          onClose = RouteRecorder::dismiss,
+          modifier = Modifier.align(Alignment.BottomCenter).padding(start = 12.dp, end = 12.dp, bottom = peek + 14.dp),
+        )
+      }
     }
   }
 }
+
+/** The record button under the locate button: a red ring, or a red square while recording. */
+@Composable
+private fun RecordButton(recording: Boolean, onClick: () -> Unit, modifier: Modifier = Modifier) {
+  val red = Color(0xFFE4002B)
+  Box(
+    modifier
+      .size(44.dp)
+      .hardShadow(Ink, 3.dp)
+      .background(Color(0xFFFBFBF8))
+      .border(1.5.dp, Ink, RectangleShape)
+      .clickable(role = Role.Button, onClick = onClick)
+      .semantics {
+        contentDescription = if (recording) "Stop recording route" else "Record a route"
+        stateDescription = if (recording) "Recording" else "Off"
+      },
+    contentAlignment = Alignment.Center,
+  ) {
+    if (recording) Box(Modifier.size(16.dp).background(red))
+    else Box(Modifier.size(20.dp).border(2.5.dp, red, CircleShape), contentAlignment = Alignment.Center) {
+      Box(Modifier.size(8.dp).background(red, CircleShape))
+    }
+  }
+}
+
+private fun formatDuration(seconds: Long): String {
+  val h = seconds / 3600
+  val m = seconds % 3600 / 60
+  val sec = seconds % 60
+  return if (h > 0) String.format(Locale.US, "%d:%02d:%02d", h, m, sec) else String.format(Locale.US, "%d:%02d", m, sec)
+}
+
+private fun formatDistance(metres: Double) =
+  if (metres < 1000) "${metres.toInt()} m" else String.format(Locale.US, "%.1f km", metres / 1000)
+
+/** The status card above the sheet while a route is recording (and after it ends): time, distance, new tiles. */
+@Composable
+private fun RouteHud(route: RouteUi, layer: Layer, onStop: () -> Unit, onClose: () -> Unit, modifier: Modifier = Modifier) {
+  val c = LocalYardColors.current
+  val track = route.track ?: return
+  val recording = route.status == RouteStatus.RECORDING
+  var now by remember { mutableLongStateOf(System.currentTimeMillis()) }
+  LaunchedEffect(recording) {
+    while (recording) { now = System.currentTimeMillis(); delay(1000) }
+  }
+  val seconds = (((if (recording) now else route.endedAtMs) - route.startedAtMs) / 1000).coerceAtLeast(0)
+  val other = Layer.entries.first { it != layer }
+  val newHere = track.newTiles.getValue(layer).size
+  val newOther = track.newTiles.getValue(other).size
+  val crossed = track.crossed.getValue(layer).size
+
+  Column(modifier.fillMaxWidth().hardShadow(c.shade).background(c.panel).border(1.5.dp, c.ink, RectangleShape)) {
+    Row(Modifier.padding(start = 12.dp, end = 8.dp, top = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+      Box(Modifier.size(10.dp).background(if (recording) Color(0xFFE4002B) else c.muted, CircleShape))
+      Spacer(Modifier.width(8.dp))
+      Label(if (recording) "Recording route" else "Route done", color = c.ink)
+      Spacer(Modifier.weight(1f))
+      TileButton(if (recording) "Stop" else "Close", if (recording) onStop else onClose, signal = !recording,
+        modifier = Modifier.padding(end = 3.dp, bottom = 3.dp))
+    }
+    Row(Modifier.fillMaxWidth()) {
+      HudCell("Time", formatDuration(seconds), Modifier.weight(1f))
+      Box(Modifier.width(1.dp).height(60.dp).background(c.line))
+      HudCell("Distance", formatDistance(track.distanceM), Modifier.weight(1f))
+      HudCell("New tiles", "+$newHere", Modifier.weight(1f).background(Signal), Ink)
+    }
+    Text(
+      "${layer.tileName}s: $crossed crossed, $newHere new · ${other.tileName}s: +$newOther new",
+      Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+      style = YardType.label.copy(fontSize = 10.5.sp, letterSpacing = 0.sp), color = c.muted, maxLines = 1,
+    )
+  }
+}
+
+/** The permissions still to ask for before a route can start: precise location, and notifications on Android 13+. */
+private fun missingRoutePermissions(context: Context): Array<String> = buildList {
+  if (ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
+    add(Manifest.permission.ACCESS_FINE_LOCATION)
+    add(Manifest.permission.ACCESS_COARSE_LOCATION)
+  }
+  if (Build.VERSION.SDK_INT >= 33 &&
+    ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED
+  ) add(Manifest.permission.POST_NOTIFICATIONS)
+}.toTypedArray()
 
 @Composable
 private fun SheetHandle() {

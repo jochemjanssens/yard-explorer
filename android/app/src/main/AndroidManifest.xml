@@ -4,9 +4,13 @@
     <!-- Map tiles from OpenStreetMap -->
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
-    <!-- Only used after you press the location button -->
+    <!-- Only used after you press the location button or start a route -->
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
+    <!-- Recording a route keeps running with the screen off, with a notification (Android requires one) -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_LOCATION" />
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
 
     <application
         android:allowBackup="true"
@@ -38,6 +42,10 @@
                 <data android:mimeType="application/vnd.google-earth.kml+xml" />
             </intent-filter>
         </activity>
+        <service
+            android:name=".route.RouteService"
+            android:exported="false"
+            android:foregroundServiceType="location" />
     </application>
 
 </manifest>

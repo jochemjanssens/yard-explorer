@@ -91,7 +91,7 @@ private fun feature(geometry: String, properties: String) = """{"type":"Feature"
  * Appends a coordinate with 7 decimals (about 1 cm) using integer arithmetic: much faster on Android than
  * formatting a Double, and there are tens of thousands of them.
  */
-private fun StringBuilder.appendCoord(v: Double): StringBuilder {
+internal fun StringBuilder.appendCoord(v: Double): StringBuilder {
   var n = Math.round(v * 1e7)
   if (n < 0) { append('-'); n = -n }
   append(n / 10_000_000).append('.')
@@ -99,6 +99,22 @@ private fun StringBuilder.appendCoord(v: Double): StringBuilder {
   repeat(7 - frac.length) { append('0') }
   return append(frac)
 }
+
+const val EMPTY_GEOJSON = """{"type":"FeatureCollection","features":[]}"""
+
+/** A route as GeoJSON; [lonLat] is [lon0, lat0, lon1, lat1, …]. Empty until there are two points. */
+fun routeLineJson(lonLat: DoubleArray): String = if (lonLat.size < 4) EMPTY_GEOJSON else buildString {
+  append("""{"type":"FeatureCollection","features":[{"type":"Feature","properties":{},"geometry":{"type":"LineString","coordinates":[""")
+  for (i in 0 until lonLat.size / 2) {
+    if (i > 0) append(',')
+    append('[').appendCoord(lonLat[2 * i]).append(',').appendCoord(lonLat[2 * i + 1]).append(']')
+  }
+  append("]}}]}")
+}
+
+/** A set of tiles as one GeoJSON feature (merged outlines), or an empty collection. */
+fun tilesJson(tiles: Collection<Tile>, z: Int): String =
+  if (tiles.isEmpty()) EMPTY_GEOJSON else featureCollection(1) { feature(multiPolygonJson(tiles, z), "") }
 
 /** Tiles as GeoJSON MultiPolygon text: merged outlines, holes attached to their outer ring, rings closed. */
 fun multiPolygonJson(tiles: Collection<Tile>, z: Int): String = buildString {

@@ -10,6 +10,7 @@ import be.jochemjanssens.yardexplorer.data.PlaceNames
 import be.jochemjanssens.yardexplorer.model.Analysis
 import be.jochemjanssens.yardexplorer.model.Layer
 import be.jochemjanssens.yardexplorer.model.Squadrats
+import be.jochemjanssens.yardexplorer.route.RouteRecorder
 import be.jochemjanssens.yardexplorer.ui.map.MapData
 import be.jochemjanssens.yardexplorer.ui.map.TOP
 import be.jochemjanssens.yardexplorer.ui.map.buildMapData
@@ -80,6 +81,7 @@ class YardViewModel(app: Application) : AndroidViewModel(app) {
       _state.update { it.copy(loading = false, message = "No squadrats found in that file.") }
       return
     }
+    RouteRecorder.visited = analysis.layers.mapValues { it.value.visited } // what counts as a new tile on a route
     _state.update { it.copy(loading = false, analysis = analysis, mapData = maps, selected = null, frameHome = it.frameHome + 1) }
     lookUpPlaces()
   }

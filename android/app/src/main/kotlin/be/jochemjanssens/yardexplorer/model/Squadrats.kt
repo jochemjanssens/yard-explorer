@@ -4,6 +4,7 @@ import kotlin.math.PI
 import kotlin.math.abs
 import kotlin.math.atan
 import kotlin.math.cos
+import kotlin.math.floor
 import kotlin.math.ln
 import kotlin.math.max
 import kotlin.math.min
@@ -230,6 +231,42 @@ object Squadrats {
       owner.holes.add(hole)
     }
     return outers.map { listOf(it.ring) + it.holes }
+  }
+
+  /** The tile a position is in. */
+  fun tileAt(lat: Double, lon: Double, z: Int) = Tile(floor(lonToTileX(lon, z)).toInt(), floor(latToTileY(lat, z)).toInt())
+
+  /**
+   * Every tile a straight stretch between two positions passes through, in order, including the first and the
+   * last. A fast rider can cover several tiles between two GPS fixes, so crossings are traced along the line
+   * rather than taken from the fixes themselves. (Web Mercator is linear in tile space, so a straight line in
+   * tile coordinates is right for the short stretches between fixes.)
+   */
+  fun tilesBetween(lat1: Double, lon1: Double, lat2: Double, lon2: Double, z: Int): List<Tile> {
+    val x1 = lonToTileX(lon1, z)
+    val y1 = latToTileY(lat1, z)
+    val x2 = lonToTileX(lon2, z)
+    val y2 = latToTileY(lat2, z)
+    var tx = floor(x1).toInt()
+    var ty = floor(y1).toInt()
+    val endX = floor(x2).toInt()
+    val endY = floor(y2).toInt()
+    val tiles = mutableListOf(Tile(tx, ty))
+    val dx = x2 - x1
+    val dy = y2 - y1
+    val stepX = if (dx > 0) 1 else -1
+    val stepY = if (dy > 0) 1 else -1
+    val inf = Double.POSITIVE_INFINITY
+    var nextX = if (dx > 0) (tx + 1 - x1) / dx else if (dx < 0) (x1 - tx) / -dx else inf
+    var nextY = if (dy > 0) (ty + 1 - y1) / dy else if (dy < 0) (y1 - ty) / -dy else inf
+    val perX = if (dx != 0.0) 1 / abs(dx) else inf
+    val perY = if (dy != 0.0) 1 / abs(dy) else inf
+    var guard = abs(endX - tx) + abs(endY - ty) + 2 // never loop forever on a rounding quirk
+    while ((tx != endX || ty != endY) && guard-- > 0) {
+      if (nextX < nextY) { tx += stepX; nextX += perX } else { ty += stepY; nextY += perY }
+      tiles.add(Tile(tx, ty))
+    }
+    return tiles
   }
 
   fun analyse(kml: String): Analysis {

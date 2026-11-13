@@ -31,7 +31,9 @@ The tests build small made-up KML exports, so no real ride data is needed or com
 
 A native Jetpack Compose version lives in [`android/`](android): the same standings, top-20 map, Away tags, place names
 (from Android's geocoder) and GPS, on a full-screen [MapLibre](https://maplibre.org) map with OpenStreetMap tiles.
-Open a KML from the app, or open the `.kml` from your Downloads and choose Yard Explorer.
+Open a KML from the app, or open the `.kml` from your Downloads and choose Yard Explorer. The record button starts a
+route: every tile you cross is tracked live (also with the screen off), and the tiles that are new to your export light
+up on the map.
 
 ```bash
 cd android

@@ -30,6 +30,7 @@ WHAT YOU GET
 • Switch between Yardinhos (squadratinhos) and Yards (squadrats)
 • Filter out the tiny ones, or show them all
 • GPS: see the tile you're standing in, and whether it's new or already ridden
+• Record a route: every tile you cross is tracked live, and the new ones light up on the map while you ride, with time, distance and a new-tile count. Recording keeps going with the screen off.
 • Smooth map gestures: pinch, double-tap, double-tap-and-drag, two-finger tap
 • Light and dark mode
 
@@ -105,11 +106,22 @@ No.
 ### Health apps / Financial features / Government apps
 None / No.
 
+### Foreground service permissions (needed since route recording)
+The app declares `FOREGROUND_SERVICE_LOCATION` for the route recorder, and Play Console asks you to explain it
+(App content → Foreground service permissions). Suggested answers:
+- **Type:** Location
+- **Why:** "The user starts recording a route and the app keeps logging GPS positions while the screen is off, so
+  every map tile the user rides through is counted. A notification stays visible for the whole recording; the
+  user stops it from the app."
+- **User-initiated:** yes, only after the user taps the record button; it stops when they stop the route.
+- Play may ask for a short screen recording that shows the feature: start a route, lock the screen, ride, stop.
+
 ### Data safety
 
 What the app actually does:
 - The KML export is processed and stored **only on the device** → not "collected".
-- GPS location is used **only on the device** (shown on the map, never stored or sent) → not "collected".
+- GPS location is used **only on the device** (shown on the map, and while a route is recorded, kept in memory until
+  the route is closed; never stored on disk or sent) → not "collected".
 - **Place names:** for each listed yard, one point rounded to about 100 m is sent to **Android's geocoder**, which on
   most phones is a Google Play services network lookup. That point comes from the user's ride data, so declaring it
   is the honest choice.
