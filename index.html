@@ -213,11 +213,21 @@
   .hero .howto-link { color: var(--ink); text-decoration: underline; text-decoration-color: var(--signal);
     text-decoration-thickness: 2px; text-underline-offset: 4px; }
   .fine a { color: inherit; text-decoration-color: var(--signal); text-decoration-thickness: 2px; text-underline-offset: 3px; }
+  /* A small teaser for the Android app */
+  .teaser { margin-top: 40px; display: grid; grid-template-columns: 132px 1fr; gap: 24px; align-items: center;
+    padding: 20px 24px; background: var(--panel); border: 1.5px solid var(--ink); box-shadow: 4px 4px 0 var(--shade); }
+  .teaser img { width: 132px; height: auto; display: block; border: 1.5px solid var(--ink); box-shadow: 4px 4px 0 var(--shade); }
+  .teaser h3 { font: 600 21px/1.2 var(--sans); letter-spacing: -.02em; margin: 6px 0 6px; }
+  .teaser p { margin: 0; color: var(--muted); font-size: 15px; }
+  .teaser .soon { display: inline-block; margin-top: 12px; padding: 4px 8px; background: var(--signal); color: #121316;
+    border: 1.5px solid #121316; font: 700 11px/1 var(--mono); letter-spacing: .08em; text-transform: uppercase; }
   .fine { margin-top: 48px; padding-top: 16px; border-top: 1px solid var(--line); font: 400 12px/1.6 var(--mono); color: var(--muted); max-width: 820px; }
 
   @media (max-width: 860px) {
     .hero { grid-template-columns: 1fr; padding-top: 40px; gap: 32px; }
     .features, .howto-steps { grid-template-columns: 1fr; }
+    .teaser { grid-template-columns: 96px 1fr; gap: 18px; padding: 16px; }
+    .teaser img { width: 96px; }
     .feature + .feature, .howto-steps > li + li { border-left: 0; border-top: 1px solid var(--line); }
   }
   /* Mobile: the map fills the screen; the sidebar becomes a sheet you drag up from the bottom */
@@ -340,6 +350,16 @@
       <div class="feature"><span class="chip" style="--c:var(--signal)"></span><h3>Every ride, everywhere</h3>
         <p>Yards from trips far from home are on the map too, tagged Away in the standings. Click one to jump there.</p></div>
     </div>
+    <section class="teaser" aria-label="Android app">
+      <img src="app-teaser.jpg" width="132" height="235" alt="The Yard Explorer Android app: your top 20 yards on a full-screen map" loading="lazy">
+      <div>
+        <span class="label">Android app</span>
+        <h3>Yard Explorer in your pocket.</h3>
+        <p>A native Android version of this site: full-screen map, GPS to see the tile you're in, and your standings in a
+          swipe-up sheet. Now in testing on Google Play.</p>
+        <span class="soon">Coming soon</span>
+      </div>
+    </section>
     <p class="fine" style="margin-top:40px"><strong>Your data stays with you.</strong> Your KML is read in your browser and never uploaded. The browser
       remembers your last export so the map is ready next time. To show place names, the location of each listed yard is
       looked up with OpenStreetMap's <a href="https://nominatim.openstreetmap.org" target="_blank" rel="noopener">Nominatim</a>
