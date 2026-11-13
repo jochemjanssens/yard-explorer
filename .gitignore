@@ -4,3 +4,6 @@ exports/
 *.gpx
 .claude/
 .DS_Store
+
+# The made-up demo export (rides around Utrecht, not real data) is published for testers and Play review.
+!demo/squadrats-demo.kml
