@@ -143,6 +143,22 @@
   .leaflet-tooltip { background: #121316; color: #fbfbf8; border: 0; border-radius: 0; box-shadow: none; font: 500 11.5px var(--mono); }
   .leaflet-tooltip-top:before, .leaflet-tooltip-bottom:before, .leaflet-tooltip-left:before, .leaflet-tooltip-right:before { display: none; }
   .leaflet-control-attribution { font: 400 10px var(--mono); }
+
+  /* Your location: a button under the zoom controls, a pulsing dot, and a note about the tile you're in */
+  .locate-btn { display: grid !important; place-items: center; background: #fbfbf8 !important; cursor: pointer; }
+  .locate-btn svg { width: 16px; height: 16px; }
+  .locate-btn.on { background: var(--signal) !important; }
+  .locate-btn.waiting svg { animation: blink 1s steps(2) infinite; }
+  @keyframes blink { 50% { opacity: .25; } }
+  .you-dot { width: 18px; height: 18px; background: var(--signal); border: 3px solid #121316; box-shadow: 2px 2px 0 #121316; }
+  .you-dot::after { content: ""; position: absolute; inset: -3px; border: 2px solid var(--signal); animation: pulse 1.8s ease-out infinite; }
+  @keyframes pulse { from { transform: scale(1); opacity: .9; } to { transform: scale(2.6); opacity: 0; } }
+  .map-note { position: absolute; z-index: 1000; left: 50%; bottom: 22px; transform: translateX(-50%); max-width: calc(100% - 32px);
+    display: flex; align-items: center; gap: 8px; padding: 8px 10px; background: #fbfbf8; color: #121316; border: 1.5px solid #121316;
+    box-shadow: 3px 3px 0 #121316; font: 500 12px/1.3 var(--mono); }
+  .map-note[hidden] { display: none; }
+  .map-note .chip { min-width: 22px; height: 22px; font-size: 11px; }
+  @media (prefers-reduced-motion: reduce) { .you-dot::after, .locate-btn.waiting svg { animation: none; } }
   .map-chip { box-shadow: 2px 2px 0 #121316; cursor: pointer; }
 
   .drop { position: fixed; inset: 0; z-index: 2000; display: none; align-items: center; justify-content: center;
@@ -251,7 +267,7 @@
     </details>
     <ol class="gc" id="list"><div class="empty">No data loaded.</div></ol>
   </aside>
-  <div id="map"></div>
+  <div id="map"><div class="map-note" id="mapNote" role="status" hidden></div></div>
 </div>
 
 <section class="landing gridded" id="landing" hidden>
@@ -313,7 +329,8 @@
     <p class="fine" style="margin-top:40px"><strong>Your data stays with you.</strong> Your KML is read in your browser and never uploaded. The browser
       remembers your last export so the map is ready next time. To show place names, the location of each listed yard is
       looked up with OpenStreetMap's <a href="https://nominatim.openstreetmap.org" target="_blank" rel="noopener">Nominatim</a>
-      (cached in your browser). Not affiliated with Squadrats.</p>
+      (cached in your browser). Your GPS location, if you turn it on, is only shown on the map and never sent or stored.
+      Not affiliated with Squadrats.</p>
   </div>
 </section>
 <div class="drop" id="drop">Drop your KML</div>
@@ -522,6 +539,7 @@
     const reportedYard = layer === "squadratinhos" ? data.reported.yardinho : data.reported.yard;
     const check = reportedYard === leader ? "matches Squadrats ✓" : `Squadrats reports ${reportedYard}`;
     renderStats(name.toLowerCase());
+    drawHere();
     $("summary").textContent = `${yards.length} ${name.toLowerCase()}s · top ${TOP.length} in colour · Away = more than ${REGION_KM} km from your best · ${check}`;
   }
 
@@ -539,6 +557,7 @@
     if (!reg) return;
     const allowed = L.latLngBounds(reg.bounds.getSouthWest(), reg.bounds.getNorthEast());
     if (selected !== null) allowed.extend(yardBounds(data[layer].yards[selected], data[layer].zoom).pad(0.5));
+    if (here) allowed.extend(here.toBounds(2000));
     map.setMinZoom(0).setMaxBounds(null);
     map.setMinZoom(map.getBoundsZoom(allowed)).setMaxBounds(allowed.pad(0.2));
   }
@@ -592,6 +611,105 @@
     landing.classList.remove("drop-hover");
     if (e.dataTransfer.files[0]) openFile(e.dataTransfer.files[0]);
   });
+
+  // ---- Your GPS location: shown on the map only, never sent anywhere or stored.
+  const hereLayer = L.layerGroup().addTo(map);
+  let here = null, hereAccuracy = 0, watchId = null, firstFix = false;
+
+  const LocateControl = L.Control.extend({
+    options: { position: "topleft" },
+    onAdd() {
+      const bar = L.DomUtil.create("div", "leaflet-bar leaflet-control");
+      const btn = L.DomUtil.create("a", "locate-btn", bar);
+      btn.href = "#";
+      btn.id = "locateBtn";
+      btn.title = "Show my location";
+      btn.setAttribute("role", "button");
+      btn.setAttribute("aria-pressed", "false");
+      btn.innerHTML = `<svg viewBox="0 0 16 16" fill="none" stroke="#121316" stroke-width="2" aria-hidden="true">
+        <rect x="4" y="4" width="8" height="8"/><path d="M8 0v3M8 13v3M0 8h3M13 8h3"/></svg>`;
+      L.DomEvent.disableClickPropagation(bar);
+      L.DomEvent.on(btn, "click", (e) => { L.DomEvent.preventDefault(e); toggleLocation(); });
+      return bar;
+    },
+  });
+  new LocateControl().addTo(map);
+
+  function note(html) {
+    $("mapNote").innerHTML = html || "";
+    $("mapNote").hidden = !html;
+  }
+
+  function setLocateState(state) { // "off" | "waiting" | "on"
+    const btn = $("locateBtn");
+    btn.classList.toggle("on", state === "on");
+    btn.classList.toggle("waiting", state === "waiting");
+    btn.setAttribute("aria-pressed", String(state !== "off"));
+    btn.title = state === "off" ? "Show my location" : "Stop showing my location";
+  }
+
+  function toggleLocation() {
+    if (watchId !== null) return stopLocation();
+    if (!("geolocation" in navigator)) return note("This browser can't share its location.");
+    setLocateState("waiting");
+    note("Finding your location…");
+    firstFix = true;
+    watchId = navigator.geolocation.watchPosition(onPosition, onLocationError, { enableHighAccuracy: true, maximumAge: 5000 });
+  }
+
+  function stopLocation() {
+    if (watchId !== null) navigator.geolocation.clearWatch(watchId);
+    watchId = null;
+    here = null;
+    hereLayer.clearLayers();
+    setLocateState("off");
+    note("");
+    if (data) lockView();
+  }
+
+  function onPosition(pos) {
+    here = L.latLng(pos.coords.latitude, pos.coords.longitude);
+    hereAccuracy = pos.coords.accuracy;
+    setLocateState("on");
+    drawHere();
+    if (firstFix) { // centre on the first fix; after that, follow along without fighting the viewer
+      firstFix = false;
+      userMoved = true;
+      if (data) lockView();
+      map.setView(here, Math.max(map.getZoom(), 15));
+    }
+  }
+
+  function onLocationError(err) {
+    const why = err.code === err.PERMISSION_DENIED ? "Location access was blocked. Allow it in your browser's site settings to use this."
+      : err.code === err.TIMEOUT ? "Finding your location took too long. Try again outdoors or with GPS on."
+      : "Your location isn't available right now.";
+    stopLocation();
+    note(why);
+    setTimeout(() => watchId === null && note(""), 6000);
+  }
+
+  // The dot, the accuracy circle, the tile you're in, and whether that tile is new.
+  function drawHere() {
+    hereLayer.clearLayers();
+    if (!here) return;
+    L.circle(here, { radius: hereAccuracy, color: "#121316", weight: 1, dashArray: "3 3", fillColor: css("--signal"),
+      fillOpacity: 0.12, interactive: false }).addTo(hereLayer);
+    L.marker(here, { icon: L.divIcon({ className: "", html: '<div class="you-dot"></div>', iconSize: [18, 18], iconAnchor: [9, 9] }),
+      zIndexOffset: 2000, interactive: false, keyboard: false }).addTo(hereLayer);
+    if (!data) return note("You're here. Load your KML to see whether this tile is new.");
+
+    const { zoom, visited, yards } = data[layer];
+    const k = `${Math.floor(Squadrats.lonToTileX(here.lng, zoom))},${Math.floor(Squadrats.latToTileY(here.lat, zoom))}`;
+    const tileName = layer === "squadratinhos" ? "squadratinho" : "squadrat";
+    const isNew = !visited.has(k);
+    L.rectangle(tileBounds(k, zoom), { color: "#121316", weight: 2, dashArray: isNew ? "6 4" : null,
+      fill: isNew, fillColor: css("--signal"), fillOpacity: 0.25, interactive: false }).addTo(hereLayer);
+    const yard = yards.findIndex((tiles) => tiles.includes(k));
+    note(isNew ? `${chip("+1", css("--signal"))} You're in a <b>new ${tileName}</b>.`
+      : yard >= 0 ? `${chip(yard + 1, colorFor(yard))} You're in ${layer === "squadratinhos" ? "Yardinho" : "Yard"} #${yard + 1}, a visited ${tileName}.`
+      : `You're in a <b>visited ${tileName}</b>.`);
+  }
 
   // Without the local server (e.g. on GitHub Pages) the browser remembers the last export instead.
   const STORE = "yard-explorer-exports";
