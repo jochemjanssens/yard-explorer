@@ -26,3 +26,22 @@ npm test
 ```
 
 The tests build small made-up KML exports, so no real ride data is needed or committed.
+
+## Android app
+
+A native Jetpack Compose version lives in [`android/`](android): the same standings, top-20 map, Away tags, place names
+(from Android's geocoder) and GPS, on a full-screen [MapLibre](https://maplibre.org) map with OpenStreetMap tiles.
+Open a KML from the app, or open the `.kml` from your Downloads and choose Yard Explorer.
+
+```bash
+cd android
+./gradlew :app:assembleDebug      # build
+./gradlew :app:testDebugUnitTest  # tests (same made-up exports as the web tests)
+```
+
+The yard logic is a Kotlin port of `squadrats.js`. A parity test checks that both rank a real export identically; it
+only runs when you point it at one, so no ride data is committed:
+
+```bash
+YARD_KML=/path/to/squadrats.kml ./gradlew :app:testDebugUnitTest
+```
