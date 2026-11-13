@@ -355,7 +355,9 @@
 <script>
   const css = (v) => getComputedStyle(document.documentElement).getPropertyValue(v).trim();
   const $ = (id) => document.getElementById(id);
-  const map = L.map("map", { preferCanvas: true, zoomSnap: 0.25 }).setView([51.0, 4.4], 10);
+  // Whole zoom levels, so one wheel or trackpad gesture zooms a full level or more. The one-finger touch zoom
+  // below switches to fractional zoom only while the gesture is running.
+  const map = L.map("map", { preferCanvas: true }).setView([51.0, 4.4], 10);
   L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
     maxZoom: 19, attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
   }).addTo(map);
@@ -745,8 +747,8 @@
       if (zooming) {
         e.preventDefault();
         e.stopPropagation();
-        map.options.zoomSnap = 0.25;
-        if (zooming.moved) map.setZoomAround(zooming.point, Math.round(map.getZoom() * 4) / 4);
+        map.options.zoomSnap = 1;
+        if (zooming.moved) map.setZoomAround(zooming.point, Math.round(map.getZoom()));
         else map.setZoomAround(zooming.point, map.getZoom() + 1); // a plain double tap zooms in
         userMoved = true;
         zooming = null;
