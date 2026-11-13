@@ -144,6 +144,30 @@ Suggested answers:
 
 ---
 
+## Automatic upload to internal testing (GitHub Actions)
+
+The **Release (Android)** workflow builds the signed bundle and uploads it to the **internal testing** track. Every run
+gets a new version code (100 + the run number), so you never have to raise it by hand; the version name
+(`versionName` in `android/app/build.gradle.kts`) is still yours to change. The release notes come from
+`android/store/whatsnew/whatsnew-en-US`.
+
+**Run it:** GitHub → Actions → *Release (Android)* → *Run workflow* (untick *Upload to Play* to only build), or push a
+tag: `git tag v0.0.3 && git push origin v0.0.3`.
+
+**One-time setup** (Google needs you for this, because it's tied to your account):
+1. Upload a first release to the app **by hand** in Play Console (any track). The API can't create the first release.
+2. Google Cloud Console → create a project (or pick one) → *APIs & Services* → enable **Google Play Android
+   Developer API**.
+3. *IAM & Admin → Service accounts* → create a service account → *Keys* → *Add key → JSON* → download the file.
+4. Play Console → **Users and permissions** → *Invite new users* → paste the service account's email → under *App
+   permissions* add Yard Explorer and tick **Release to testing tracks** (and *Manage testing tracks*) → invite.
+   (It can take a few minutes before the permission works.)
+5. Store the key as a GitHub secret, then delete the downloaded file:
+   `gh secret set PLAY_SERVICE_ACCOUNT_JSON --repo jochemjanssens/yard-explorer < key.json`
+
+Then: Play Console → Testing → Internal testing → *Testers* → add yourself (and others) by email, and open the
+opt-in link on your phone to install builds as they arrive.
+
 ## Release (Testing → Closed testing)
 
 **Release name:** `0.0.2` (0.0.1 had no route recording)

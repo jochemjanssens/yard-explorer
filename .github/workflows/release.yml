@@ -2,9 +2,19 @@ name: Release (Android)
 # Builds the Play Store bundle (.aab), signed with the upload key from the repository secrets:
 #   UPLOAD_KEYSTORE_BASE64  the .jks file, base64-encoded
 #   UPLOAD_STORE_PASSWORD   its password
-# Run it from the Actions tab ("Run workflow") and download the bundle from the run's artifacts.
+# and, unless you untick "Upload to Play", sends it to the INTERNAL TESTING track using:
+#   PLAY_SERVICE_ACCOUNT_JSON  the Google service-account key (see android/PLAY_STORE.md)
+# Run it from the Actions tab ("Run workflow"), or push a tag like v0.0.3 (which also uploads).
+# Every run gets a new versionCode (100 + the run number), as Play requires.
 on:
   workflow_dispatch:
+    inputs:
+      upload:
+        description: Upload to Play internal testing
+        type: boolean
+        default: true
+  push:
+    tags: ["v*"]
 
 jobs:
   bundle:
@@ -32,7 +42,7 @@ jobs:
         env:
           UPLOAD_STORE_FILE: ${{ runner.temp }}/upload.jks
           UPLOAD_STORE_PASSWORD: ${{ secrets.UPLOAD_STORE_PASSWORD }}
-        run: ./gradlew --no-configuration-cache :app:testDebugUnitTest :app:bundleRelease
+        run: ./gradlew --no-configuration-cache -PversionCode=$((100 + GITHUB_RUN_NUMBER)) :app:testDebugUnitTest :app:bundleRelease
       - name: Check it's signed with the upload key, not the debug key
         run: |
           jarsigner -verify -verbose -certs app/build/outputs/bundle/release/app-release.aab | grep -m1 "Signed by" | tee /dev/stderr | grep -qv "Android Debug"
@@ -40,6 +50,17 @@ jobs:
         with:
           name: yard-explorer-release-aab
           path: android/app/build/outputs/bundle/release/app-release.aab
+      - name: Upload to Play internal testing
+        if: github.event_name == 'push' || inputs.upload
+        # Pinned to a commit (v1.1.5): this action receives the Play service-account key.
+        uses: r0adkll/upload-google-play@e738b9dd8f2476ea806d921b64aacd24f34515a5
+        with:
+          serviceAccountJsonPlainText: ${{ secrets.PLAY_SERVICE_ACCOUNT_JSON }}
+          packageName: be.jochemjanssens.yardexplorer
+          releaseFiles: android/app/build/outputs/bundle/release/app-release.aab
+          track: internal
+          status: completed
+          whatsNewDirectory: android/store/whatsnew
       - name: Remove the key
         if: always()
         run: rm -f "$RUNNER_TEMP/upload.jks"

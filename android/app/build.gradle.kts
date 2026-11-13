@@ -24,7 +24,9 @@ android {
     applicationId = "be.jochemjanssens.yardexplorer"
     minSdk = 26
     targetSdk = 36
-    versionCode = 2
+    // Play needs a higher versionCode for every upload. The GitHub release workflow passes -PversionCode=<n>;
+    // local builds use the number below.
+    versionCode = (findProperty("versionCode") as String?)?.toInt() ?: 2
     versionName = "0.0.2"
   }
 
