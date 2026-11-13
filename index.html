@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Yard Explorer</title>
 <link rel="icon" href="favicon.svg" type="image/svg+xml">
 <meta name="description" content="See all your Squadrats Yards and Yardinhos ranked, with your top 20 highlighted on the map.">
@@ -144,7 +144,7 @@
   .leaflet-tooltip-top:before, .leaflet-tooltip-bottom:before, .leaflet-tooltip-left:before, .leaflet-tooltip-right:before { display: none; }
   .leaflet-control-attribution { font: 400 10px var(--mono); }
 
-  /* Your location: a button under the zoom controls, a pulsing dot, and a note about the tile you're in */
+  /* Your location: a button under the zoom controls and a pulsing dot; the note only explains errors */
   .locate-btn { display: grid !important; place-items: center; background: #fbfbf8 !important; cursor: pointer; }
   .locate-btn svg { width: 16px; height: 16px; }
   .locate-btn.on { background: var(--signal) !important; }
@@ -220,17 +220,31 @@
     .features, .howto-steps { grid-template-columns: 1fr; }
     .feature + .feature, .howto-steps > li + li { border-left: 0; border-top: 1px solid var(--line); }
   }
+  /* Mobile: the map fills the screen; the sidebar becomes a sheet you drag up from the bottom */
+  .sheet-handle { display: none; }
   @media (max-width: 760px) {
-    .app { grid-template-columns: 1fr; grid-template-rows: 45vh minmax(0, 1fr); }
-    aside { order: 2; border-right: 0; border-top: 1.5px solid var(--ink); }
+    html, body { overflow: hidden; }
+    .app { display: block; }
+    #map { position: fixed; inset: 0; height: auto; }
+    aside { position: fixed; left: 0; right: 0; bottom: 0; z-index: 1000; height: var(--sheet-h, 156px); max-height: 92dvh;
+      border-right: 0; border-top: 1.5px solid var(--ink); box-shadow: 0 -3px 0 var(--shade); transition: height .22s ease-out;
+      padding-bottom: env(safe-area-inset-bottom); overscroll-behavior: contain; }
+    aside.dragging { transition: none; }
+    aside.peek { overflow: hidden; }
+    .sheet-handle { display: flex; justify-content: center; padding: 10px 0 4px; margin-bottom: -8px; touch-action: none; cursor: grab; }
+    .sheet-handle i { width: 44px; height: 5px; background: var(--ink); opacity: .35; }
+    header { padding-top: 8px; }
+    .brand { touch-action: none; }
     ol.gc { flex: none; }
+    .map-note { bottom: calc(var(--sheet-h, 156px) + 14px); }
     .topbar .label { display: none; }
   }
 </style>
 </head>
 <body>
 <div class="app">
-  <aside class="gridded">
+  <aside class="gridded" id="sheet">
+    <div class="sheet-handle" id="sheetHandle" role="button" aria-label="Show more or less of the standings" tabindex="0"><i></i></div>
     <header>
       <div class="brand">
         <div class="logo" aria-hidden="true"><i></i><i class="on"></i><i></i><i class="on"></i><i class="on"></i><i class="on"></i><i></i><i class="on"></i><i class="on"></i></div>
@@ -341,7 +355,7 @@
 <script>
   const css = (v) => getComputedStyle(document.documentElement).getPropertyValue(v).trim();
   const $ = (id) => document.getElementById(id);
-  const map = L.map("map", { preferCanvas: true }).setView([51.0, 4.4], 10);
+  const map = L.map("map", { preferCanvas: true, zoomSnap: 0.25 }).setView([51.0, 4.4], 10);
   L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
     maxZoom: 19, attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
   }).addTo(map);
@@ -375,10 +389,15 @@
     return "";
   }
 
+  // When Nominatim refuses (e.g. 429 Too Many Requests) or we're offline, wait before trying again:
+  // a minute at first, doubling up to half an hour, so a refusal never turns into a stream of retries.
+  let placeBackoff = 0;
+
   async function pumpPlaces() {
     if (placeBusy || !placeQueue.length) return;
     placeBusy = true;
     const k = placeQueue.shift(), [lat, lon] = k.split(",");
+    let ok = false;
     try {
       const res = await fetch(`https://nominatim.openstreetmap.org/reverse?format=jsonv2&zoom=14&lat=${lat}&lon=${lon}`);
       if (res.ok) {
@@ -386,9 +405,12 @@
         places[k] = a.village || a.town || a.city || a.municipality || a.suburb || a.hamlet || "";
         try { localStorage.setItem(PLACES, JSON.stringify(places)); } catch { /* storage full or blocked */ }
         document.querySelectorAll(`[data-place="${k}"]`).forEach((el) => (el.textContent = places[k] || el.dataset.fallback));
+        ok = true;
       }
-    } catch { /* offline or blocked: try again on a later render */ }
-    setTimeout(() => { placeBusy = false; pumpPlaces(); }, 1100);
+    } catch { /* offline, or a refusal without CORS headers */ }
+    if (!ok) placeQueue.unshift(k); // keep its place in line
+    placeBackoff = ok ? 0 : Math.min(placeBackoff ? placeBackoff * 2 : 60_000, 30 * 60_000);
+    setTimeout(() => { placeBusy = false; pumpPlaces(); }, ok ? 1100 : placeBackoff);
   }
 
   // "#3 Keerbergen" style label for a yard, filled in once its place name arrives.
@@ -548,7 +570,10 @@
     userMoved = true; // keep the view on the yard picked from the standings
     render();
     lockView();
-    if (selected !== null) map.fitBounds(yardBounds(data[layer].yards[i], data[layer].zoom), { padding: [60, 60], maxZoom: 16 });
+    if (selected !== null) {
+      setSheet("peek"); // on mobile, get the sheet out of the way to show the yard
+      map.fitBounds(yardBounds(data[layer].yards[i], data[layer].zoom), { padding: [60, 60], maxZoom: 16, ...sheetPadding() });
+    }
   }
 
   // Lock the map to the focus region so you can't wander off to the rest of the world.
@@ -578,7 +603,7 @@
     pendingFocus = false;
     userMoved = false;
     lockView();
-    map.fitBounds(reg.view, { animate: false });
+    map.fitBounds(reg.view, { animate: false, ...sheetPadding() });
   }
 
   function load(kml) {
@@ -611,6 +636,136 @@
     landing.classList.remove("drop-hover");
     if (e.dataTransfer.files[0]) openFile(e.dataTransfer.files[0]);
   });
+
+  // ---- Mobile bottom sheet: peek (stats only), half, or full; drag the handle or tap it to switch.
+  const mobile = matchMedia("(max-width: 760px)");
+  const sheet = $("sheet");
+  const SHEET_STOPS = { peek: () => 156, half: () => innerHeight * 0.5, full: () => innerHeight * 0.88 };
+  let sheetState = "peek";
+
+  function setSheet(state, height = SHEET_STOPS[state]()) {
+    if (!mobile.matches) return;
+    sheetState = state;
+    document.documentElement.style.setProperty("--sheet-h", `${Math.round(height)}px`);
+    sheet.classList.toggle("peek", state === "peek");
+    if (state === "peek") sheet.scrollTop = 0;
+  }
+
+  // On mobile the sheet covers the bottom of the map; keep framed yards above it.
+  function sheetPadding() {
+    return mobile.matches ? { paddingTopLeft: [20, 20], paddingBottomRight: [20, SHEET_STOPS[sheetState]() + 20] } : {};
+  }
+
+  (function sheetDrag() {
+    let startY = 0, startH = 0, moved = false;
+    const grips = [$("sheetHandle"), sheet.querySelector(".brand")];
+    const onMove = (e) => {
+      const dy = e.clientY - startY;
+      if (Math.abs(dy) > 4) moved = true;
+      const h = Math.min(innerHeight * 0.92, Math.max(120, startH - dy));
+      document.documentElement.style.setProperty("--sheet-h", `${h}px`);
+    };
+    const onUp = (e) => {
+      removeEventListener("pointermove", onMove);
+      removeEventListener("pointerup", onUp);
+      sheet.classList.remove("dragging");
+      if (!moved) return setSheet(sheetState === "peek" ? "half" : "peek"); // a tap toggles
+      const h = startH - (e.clientY - startY);
+      const nearest = Object.keys(SHEET_STOPS).reduce((a, b) => (Math.abs(SHEET_STOPS[b]() - h) < Math.abs(SHEET_STOPS[a]() - h) ? b : a));
+      setSheet(nearest);
+    };
+    for (const grip of grips) {
+      grip.addEventListener("pointerdown", (e) => {
+        if (!mobile.matches || e.target.closest("button")) return;
+        startY = e.clientY;
+        startH = sheet.getBoundingClientRect().height;
+        moved = false;
+        sheet.classList.add("dragging");
+        addEventListener("pointermove", onMove);
+        addEventListener("pointerup", onUp);
+      });
+    }
+    $("sheetHandle").addEventListener("keydown", (e) => {
+      if (e.key === "Enter" || e.key === " ") { e.preventDefault(); setSheet(sheetState === "peek" ? "half" : "peek"); }
+    });
+    // OpenStreetMap's credit must stay visible, so on mobile it moves above the sheet.
+    const placeCredit = () => map.attributionControl.setPosition(mobile.matches ? "topright" : "bottomright");
+    mobile.addEventListener("change", () => { placeCredit(); if (mobile.matches) setSheet("peek"); });
+    placeCredit();
+    setSheet("peek");
+  })();
+
+  // ---- Touch gestures like Google Maps. Leaflet already does one-finger pan and pinch zoom; added here:
+  // double-tap zooms in, double-tap-and-drag zooms with one finger (down = in), two-finger tap zooms out.
+  (function touchGestures() {
+    const el = map.getContainer();
+    const DOUBLE_TAP_MS = 300, NEAR_PX = 30, TAP_MS = 250, PX_PER_LEVEL = 140;
+    let lastTap = null;   // the last quick one-finger tap: { t, x, y }
+    let press = null;     // the current one-finger press: { t, x, y }
+    let zooming = null;   // an active double-tap-and-drag: { y, zoom, point, moved }
+    let twoTap = null;    // a possible two-finger tap: { t, x, y, moved }
+    const pointIn = (touch) => { const r = el.getBoundingClientRect(); return L.point(touch.clientX - r.left, touch.clientY - r.top); };
+
+    el.addEventListener("touchstart", (e) => {
+      const t = e.touches;
+      if (t.length === 1) {
+        const p = t[0];
+        press = { t: e.timeStamp, x: p.clientX, y: p.clientY };
+        if (lastTap && e.timeStamp - lastTap.t < DOUBLE_TAP_MS && Math.hypot(p.clientX - lastTap.x, p.clientY - lastTap.y) < NEAR_PX) {
+          // Second tap: this gesture is ours, so Leaflet shouldn't start a drag.
+          zooming = { y: p.clientY, zoom: map.getZoom(), point: pointIn(p), moved: false };
+          lastTap = null;
+          e.preventDefault();
+          e.stopPropagation();
+        }
+      } else if (t.length === 2) {
+        press = null;
+        twoTap = { t: e.timeStamp, x: (t[0].clientX + t[1].clientX) / 2, y: (t[0].clientY + t[1].clientY) / 2, moved: false };
+      }
+    }, { capture: true, passive: false });
+
+    el.addEventListener("touchmove", (e) => {
+      if (zooming) {
+        e.preventDefault();
+        e.stopPropagation();
+        const dy = e.touches[0].clientY - zooming.y;
+        if (Math.abs(dy) > 6) zooming.moved = true;
+        map.options.zoomSnap = 0; // follow the finger smoothly
+        map.setZoomAround(zooming.point, zooming.zoom + dy / PX_PER_LEVEL, { animate: false });
+        return;
+      }
+      if (twoTap && e.touches.length === 2) {
+        const x = (e.touches[0].clientX + e.touches[1].clientX) / 2, y = (e.touches[0].clientY + e.touches[1].clientY) / 2;
+        if (Math.hypot(x - twoTap.x, y - twoTap.y) > 12) twoTap.moved = true;
+      }
+      if (press && e.touches.length === 1 && Math.hypot(e.touches[0].clientX - press.x, e.touches[0].clientY - press.y) > NEAR_PX) press = null;
+    }, { capture: true, passive: false });
+
+    el.addEventListener("touchend", (e) => {
+      if (zooming) {
+        e.preventDefault();
+        e.stopPropagation();
+        map.options.zoomSnap = 0.25;
+        if (zooming.moved) map.setZoomAround(zooming.point, Math.round(map.getZoom() * 4) / 4);
+        else map.setZoomAround(zooming.point, map.getZoom() + 1); // a plain double tap zooms in
+        userMoved = true;
+        zooming = null;
+        return;
+      }
+      if (twoTap && e.touches.length === 0) {
+        if (!twoTap.moved && e.timeStamp - twoTap.t < TAP_MS + 100) {
+          userMoved = true;
+          setTimeout(() => map.zoomOut(), 0); // after Leaflet's own pinch handler has finished with this touch
+        }
+        twoTap = null;
+        return;
+      }
+      if (press && e.touches.length === 0) {
+        lastTap = e.timeStamp - press.t < TAP_MS ? { t: e.timeStamp, x: press.x, y: press.y } : null;
+        press = null;
+      }
+    }, { capture: true, passive: false });
+  })();
 
   // ---- Your GPS location: shown on the map only, never sent anywhere or stored.
   const hereLayer = L.layerGroup().addTo(map);
@@ -652,7 +807,6 @@
     if (watchId !== null) return stopLocation();
     if (!("geolocation" in navigator)) return note("This browser can't share its location.");
     setLocateState("waiting");
-    note("Finding your location…");
     firstFix = true;
     watchId = navigator.geolocation.watchPosition(onPosition, onLocationError, { enableHighAccuracy: true, maximumAge: 5000 });
   }
@@ -689,7 +843,7 @@
     setTimeout(() => watchId === null && note(""), 6000);
   }
 
-  // The dot, the accuracy circle, the tile you're in, and whether that tile is new.
+  // The dot, the accuracy circle and the tile you're in.
   function drawHere() {
     hereLayer.clearLayers();
     if (!here) return;
@@ -697,18 +851,14 @@
       fillOpacity: 0.12, interactive: false }).addTo(hereLayer);
     L.marker(here, { icon: L.divIcon({ className: "", html: '<div class="you-dot"></div>', iconSize: [18, 18], iconAnchor: [9, 9] }),
       zIndexOffset: 2000, interactive: false, keyboard: false }).addTo(hereLayer);
-    if (!data) return note("You're here. Load your KML to see whether this tile is new.");
+    if (!data) return;
 
-    const { zoom, visited, yards } = data[layer];
+    // The tile you're in: green and dashed when it's new, a plain outline when it's visited.
+    const { zoom, visited } = data[layer];
     const k = `${Math.floor(Squadrats.lonToTileX(here.lng, zoom))},${Math.floor(Squadrats.latToTileY(here.lat, zoom))}`;
-    const tileName = layer === "squadratinhos" ? "squadratinho" : "squadrat";
     const isNew = !visited.has(k);
     L.rectangle(tileBounds(k, zoom), { color: "#121316", weight: 2, dashArray: isNew ? "6 4" : null,
       fill: isNew, fillColor: css("--signal"), fillOpacity: 0.25, interactive: false }).addTo(hereLayer);
-    const yard = yards.findIndex((tiles) => tiles.includes(k));
-    note(isNew ? `${chip("+1", css("--signal"))} You're in a <b>new ${tileName}</b>.`
-      : yard >= 0 ? `${chip(yard + 1, colorFor(yard))} You're in ${layer === "squadratinhos" ? "Yardinho" : "Yard"} #${yard + 1}, a visited ${tileName}.`
-      : `You're in a <b>visited ${tileName}</b>.`);
   }
 
   // Without the local server (e.g. on GitHub Pages) the browser remembers the last export instead.
