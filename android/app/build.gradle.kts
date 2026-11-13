@@ -1,25 +1,49 @@
+import java.util.Properties
+
 plugins {
   alias(libs.plugins.android.application)
   alias(libs.plugins.compose.compiler)
 }
 
+// The Play upload key: from keystore.properties locally (never committed), or from environment variables in the
+// GitHub release workflow (filled from repository secrets).
+val keystoreProps = Properties().apply {
+  rootProject.file("keystore.properties").takeIf { it.exists() }?.inputStream()?.use(::load)
+  System.getenv("UPLOAD_STORE_FILE")?.let { file ->
+    setProperty("storeFile", file)
+    setProperty("storePassword", System.getenv("UPLOAD_STORE_PASSWORD"))
+    setProperty("keyPassword", System.getenv("UPLOAD_KEY_PASSWORD") ?: System.getenv("UPLOAD_STORE_PASSWORD"))
+    setProperty("keyAlias", System.getenv("UPLOAD_KEY_ALIAS") ?: "upload")
+  }
+}
+
 android {
-  namespace = "io.github.jochemjanssens.yardexplorer"
+  namespace = "be.jochemjanssens.yardexplorer"
   compileSdk = 36
   defaultConfig {
-    applicationId = "io.github.jochemjanssens.yardexplorer"
+    applicationId = "be.jochemjanssens.yardexplorer"
     minSdk = 26
     targetSdk = 36
     versionCode = 1
-    versionName = "1.0"
+    versionName = "0.0.1"
+  }
+
+  signingConfigs {
+    if (!keystoreProps.isEmpty) create("upload") {
+      storeFile = rootProject.file(keystoreProps.getProperty("storeFile"))
+      storePassword = keystoreProps.getProperty("storePassword")
+      keyAlias = keystoreProps.getProperty("keyAlias")
+      keyPassword = keystoreProps.getProperty("keyPassword")
+    }
   }
 
   buildTypes {
     release {
       isMinifyEnabled = false
       proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
-      // Signed with the local debug key so release builds can be installed for testing; use a real key to publish.
-      signingConfig = signingConfigs.getByName("debug")
+      // The upload key when keystore.properties exists; otherwise the local debug key, which is fine for
+      // installing on your own phone but is rejected by Play Console.
+      signingConfig = signingConfigs.findByName("upload") ?: signingConfigs.getByName("debug")
     }
   }
   compileOptions {

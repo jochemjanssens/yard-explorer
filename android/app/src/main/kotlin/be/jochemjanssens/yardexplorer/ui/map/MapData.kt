@@ -1,10 +1,10 @@
-package io.github.jochemjanssens.yardexplorer.ui.map
+package be.jochemjanssens.yardexplorer.ui.map
 
-import io.github.jochemjanssens.yardexplorer.model.LayerData
-import io.github.jochemjanssens.yardexplorer.model.Squadrats
-import io.github.jochemjanssens.yardexplorer.model.Tile
-import io.github.jochemjanssens.yardexplorer.ui.theme.hex
-import io.github.jochemjanssens.yardexplorer.ui.theme.rankColor
+import be.jochemjanssens.yardexplorer.model.LayerData
+import be.jochemjanssens.yardexplorer.model.Squadrats
+import be.jochemjanssens.yardexplorer.model.Tile
+import be.jochemjanssens.yardexplorer.ui.theme.hex
+import be.jochemjanssens.yardexplorer.ui.theme.rankColor
 import org.maplibre.android.geometry.LatLng
 import org.maplibre.android.geometry.LatLngBounds
 import org.maplibre.geojson.MultiPolygon

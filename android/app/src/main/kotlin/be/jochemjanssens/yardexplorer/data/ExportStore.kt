@@ -1,4 +1,4 @@
-package io.github.jochemjanssens.yardexplorer.data
+package be.jochemjanssens.yardexplorer.data
 
 import android.content.Context
 import android.net.Uri

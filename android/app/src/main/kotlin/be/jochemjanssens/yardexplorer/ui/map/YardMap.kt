@@ -1,4 +1,4 @@
-package io.github.jochemjanssens.yardexplorer.ui.map
+package be.jochemjanssens.yardexplorer.ui.map
 
 import android.annotation.SuppressLint
 import android.content.Context
@@ -26,14 +26,14 @@ import androidx.compose.ui.viewinterop.AndroidView
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
-import io.github.jochemjanssens.yardexplorer.model.Squadrats
-import io.github.jochemjanssens.yardexplorer.model.Tile
-import io.github.jochemjanssens.yardexplorer.ui.theme.Ink
-import io.github.jochemjanssens.yardexplorer.ui.theme.Signal
-import io.github.jochemjanssens.yardexplorer.ui.theme.Steel
-import io.github.jochemjanssens.yardexplorer.ui.theme.hex
-import io.github.jochemjanssens.yardexplorer.ui.theme.rankColor
-import io.github.jochemjanssens.yardexplorer.ui.theme.textOn
+import be.jochemjanssens.yardexplorer.model.Squadrats
+import be.jochemjanssens.yardexplorer.model.Tile
+import be.jochemjanssens.yardexplorer.ui.theme.Ink
+import be.jochemjanssens.yardexplorer.ui.theme.Signal
+import be.jochemjanssens.yardexplorer.ui.theme.Steel
+import be.jochemjanssens.yardexplorer.ui.theme.hex
+import be.jochemjanssens.yardexplorer.ui.theme.rankColor
+import be.jochemjanssens.yardexplorer.ui.theme.textOn
 import org.maplibre.android.MapLibre
 import org.maplibre.android.camera.CameraUpdateFactory
 import org.maplibre.android.geometry.LatLng

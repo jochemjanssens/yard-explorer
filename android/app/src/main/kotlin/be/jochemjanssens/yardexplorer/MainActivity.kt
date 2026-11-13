@@ -1,4 +1,4 @@
-package io.github.jochemjanssens.yardexplorer
+package be.jochemjanssens.yardexplorer
 
 import android.content.Intent
 import android.net.Uri
@@ -10,9 +10,9 @@ import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
 import androidx.core.content.IntentCompat
-import io.github.jochemjanssens.yardexplorer.ui.YardExplorerApp
-import io.github.jochemjanssens.yardexplorer.ui.YardViewModel
-import io.github.jochemjanssens.yardexplorer.ui.theme.YardExplorerTheme
+import be.jochemjanssens.yardexplorer.ui.YardExplorerApp
+import be.jochemjanssens.yardexplorer.ui.YardViewModel
+import be.jochemjanssens.yardexplorer.ui.theme.YardExplorerTheme
 import okhttp3.OkHttpClient
 import org.maplibre.android.MapLibre
 import org.maplibre.android.module.http.HttpRequestUtil

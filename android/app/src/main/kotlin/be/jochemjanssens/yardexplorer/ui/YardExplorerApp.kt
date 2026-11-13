@@ -1,4 +1,4 @@
-package io.github.jochemjanssens.yardexplorer.ui
+package be.jochemjanssens.yardexplorer.ui
 
 import android.Manifest
 import android.annotation.SuppressLint
@@ -71,16 +71,16 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import io.github.jochemjanssens.yardexplorer.model.Layer
-import io.github.jochemjanssens.yardexplorer.ui.map.REGION_KM
-import io.github.jochemjanssens.yardexplorer.ui.map.TOP
-import io.github.jochemjanssens.yardexplorer.ui.map.YardMap
-import io.github.jochemjanssens.yardexplorer.ui.theme.Ink
-import io.github.jochemjanssens.yardexplorer.ui.theme.LocalYardColors
-import io.github.jochemjanssens.yardexplorer.ui.theme.RankColors
-import io.github.jochemjanssens.yardexplorer.ui.theme.Signal
-import io.github.jochemjanssens.yardexplorer.ui.theme.YardType
-import io.github.jochemjanssens.yardexplorer.ui.theme.rankColor
+import be.jochemjanssens.yardexplorer.model.Layer
+import be.jochemjanssens.yardexplorer.ui.map.REGION_KM
+import be.jochemjanssens.yardexplorer.ui.map.TOP
+import be.jochemjanssens.yardexplorer.ui.map.YardMap
+import be.jochemjanssens.yardexplorer.ui.theme.Ink
+import be.jochemjanssens.yardexplorer.ui.theme.LocalYardColors
+import be.jochemjanssens.yardexplorer.ui.theme.RankColors
+import be.jochemjanssens.yardexplorer.ui.theme.Signal
+import be.jochemjanssens.yardexplorer.ui.theme.YardType
+import be.jochemjanssens.yardexplorer.ui.theme.rankColor
 import kotlinx.coroutines.launch
 import java.text.NumberFormat
 import java.util.Locale
@@ -174,6 +174,13 @@ private fun Landing(message: String?, onPickFile: () -> Unit, onDismiss: () -> U
       "Your export stays on this phone. Place names come from Android's geocoder, and your location, if you turn it on, " +
         "is only shown on the map. Not affiliated with Squadrats.",
       style = YardType.label.copy(fontSize = 11.sp, letterSpacing = 0.sp, lineHeight = 17.sp), color = c.muted,
+    )
+    Spacer(Modifier.height(10.dp))
+    Label(
+      "Privacy policy ↗",
+      Modifier.clickable(role = Role.Button) { uri.openUri("https://jochemjanssens.github.io/yard-explorer/privacy.html") }
+        .padding(vertical = 6.dp),
+      color = c.ink,
     )
   }
 }

@@ -1,0 +1,101 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Privacy policy · Yard Explorer</title>
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<meta name="description" content="How Yard Explorer (website and Android app) handles your data.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Space+Grotesk:wght@400;500;600;700&display=swap">
+<style>
+  :root {
+    --bg: #f4f4f0; --panel: #fbfbf8; --ink: #121316; --muted: #6a6c71; --line: #d8d8d2; --signal: #00e676;
+    --grid: rgba(18, 19, 22, .055); --shade: #121316;
+    --sans: "Space Grotesk", -apple-system, "Segoe UI", sans-serif;
+    --mono: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, monospace;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg: #0e0f11; --panel: #141518; --ink: #efefe9; --muted: #989aa0; --line: #2a2c31; --grid: rgba(255,255,255,.035); --shade: #000; }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; color: var(--ink); font: 16px/1.6 var(--sans);
+    background: var(--bg) linear-gradient(var(--grid) 1px, transparent 1px) 0 0 / 24px 24px,
+      linear-gradient(90deg, var(--grid) 1px, transparent 1px) 0 0 / 24px 24px; }
+  .wrap { max-width: 760px; margin: 0 auto; padding: 32px 20px 64px; }
+  .top { display: flex; align-items: center; gap: 10px; text-decoration: none; color: inherit; }
+  .logo { display: grid; grid-template-columns: repeat(3, 7px); gap: 1.5px; }
+  .logo i { width: 7px; height: 7px; background: var(--line); }
+  .logo i.on { background: var(--signal); }
+  .label { font: 500 11px/1.2 var(--mono); letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
+  h1 { font: 700 clamp(34px, 6vw, 52px)/1.05 var(--sans); letter-spacing: -.03em; margin: 40px 0 8px; }
+  h2 { font: 600 22px/1.2 var(--sans); letter-spacing: -.01em; margin: 0 0 8px; }
+  .card { background: var(--panel); border: 1.5px solid var(--ink); box-shadow: 4px 4px 0 var(--shade); padding: 22px 24px; margin-top: 22px; }
+  .card p, .card ul { margin: 8px 0 0; color: var(--muted); }
+  .card li { margin: 4px 0; }
+  .card b { color: var(--ink); font-weight: 600; }
+  a { color: inherit; text-decoration-color: var(--signal); text-decoration-thickness: 2px; text-underline-offset: 3px; }
+  .summary { margin-top: 18px; font-size: 18px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <a class="top" href="./">
+    <span class="logo" aria-hidden="true"><i></i><i class="on"></i><i></i><i class="on"></i><i class="on"></i><i class="on"></i><i></i><i class="on"></i><i class="on"></i></span>
+    <b>Yard Explorer</b>
+  </a>
+
+  <h1>Privacy policy</h1>
+  <span class="label">Website and Android app · Last updated 13 November 2026</span>
+  <p class="summary">Yard Explorer has no accounts, no ads, no analytics and no tracking. Your Squadrats export stays on
+    your device. A few things are looked up online to draw the map and name your yards; this page lists exactly what.</p>
+
+  <div class="card">
+    <h2>Your Squadrats export (KML)</h2>
+    <p>The file you open is read and analysed <b>on your device</b>. It is never uploaded to us or anyone else.</p>
+    <ul>
+      <li><b>Website:</b> your browser keeps your last export (local storage) so the map is ready next time.</li>
+      <li><b>Android app:</b> the app keeps your last export in its private storage on your phone. Android's own
+        backup may include it if you have device backup turned on.</li>
+    </ul>
+    <p>You can remove it any time by clearing the site's data in your browser, or the app's storage in Android settings,
+      or by uninstalling the app.</p>
+  </div>
+
+  <div class="card">
+    <h2>Place names</h2>
+    <p>To show names like "Leuven" next to your yards, one point per listed yard (rounded to about 100 m) is looked up:</p>
+    <ul>
+      <li><b>Website:</b> with OpenStreetMap's <a href="https://nominatim.org" target="_blank" rel="noopener">Nominatim</a> service
+        (<a href="https://osmfoundation.org/wiki/Privacy_Policy" target="_blank" rel="noopener">their privacy policy</a>).</li>
+      <li><b>Android app:</b> with Android's built-in geocoder, which is provided by Google Play services on most phones
+        (<a href="https://policies.google.com/privacy" target="_blank" rel="noopener">Google's privacy policy</a>).</li>
+    </ul>
+    <p>Results are cached on your device so each yard is looked up only once. Nothing else is sent with these lookups.</p>
+  </div>
+
+  <div class="card">
+    <h2>Map tiles</h2>
+    <p>The map images come from <a href="https://www.openstreetmap.org" target="_blank" rel="noopener">OpenStreetMap</a>.
+      Like any website, their servers receive your IP address and which map area you view
+      (<a href="https://osmfoundation.org/wiki/Privacy_Policy" target="_blank" rel="noopener">their privacy policy</a>).</p>
+  </div>
+
+  <div class="card">
+    <h2>Your location (GPS)</h2>
+    <p>Location is only used when you press the location button, to show where you are and which tile you're in.
+      It is <b>never sent anywhere and never stored</b>. On Android you can withdraw the permission at any time in
+      the app's settings.</p>
+  </div>
+
+  <div class="card">
+    <h2>Children, changes and contact</h2>
+    <p>Yard Explorer is not directed at children. If this policy changes, the new version will be published on this page
+      with a new date.</p>
+    <p>Questions? Open an issue at <a href="https://github.com/jochemjanssens/yard-explorer/issues" target="_blank" rel="noopener">github.com/jochemjanssens/yard-explorer</a>.</p>
+    <p>Yard Explorer is an independent project and is not affiliated with Squadrats.</p>
+  </div>
+</div>
+</body>
+</html>

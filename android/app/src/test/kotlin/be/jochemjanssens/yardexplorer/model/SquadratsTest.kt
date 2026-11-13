@@ -1,4 +1,4 @@
-package io.github.jochemjanssens.yardexplorer.model
+package be.jochemjanssens.yardexplorer.model
 
 import org.junit.Assert.assertEquals
 import org.junit.Test

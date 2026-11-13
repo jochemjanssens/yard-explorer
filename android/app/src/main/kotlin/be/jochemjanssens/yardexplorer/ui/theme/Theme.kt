@@ -1,4 +1,4 @@
-package io.github.jochemjanssens.yardexplorer.ui.theme
+package be.jochemjanssens.yardexplorer.ui.theme
 
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.material3.MaterialTheme

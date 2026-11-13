@@ -1,18 +1,18 @@
-package io.github.jochemjanssens.yardexplorer.ui
+package be.jochemjanssens.yardexplorer.ui
 
 import android.app.Application
 import android.content.Context
 import android.net.Uri
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
-import io.github.jochemjanssens.yardexplorer.data.ExportStore
-import io.github.jochemjanssens.yardexplorer.data.PlaceNames
-import io.github.jochemjanssens.yardexplorer.model.Analysis
-import io.github.jochemjanssens.yardexplorer.model.Layer
-import io.github.jochemjanssens.yardexplorer.model.Squadrats
-import io.github.jochemjanssens.yardexplorer.ui.map.MapData
-import io.github.jochemjanssens.yardexplorer.ui.map.TOP
-import io.github.jochemjanssens.yardexplorer.ui.map.buildMapData
+import be.jochemjanssens.yardexplorer.data.ExportStore
+import be.jochemjanssens.yardexplorer.data.PlaceNames
+import be.jochemjanssens.yardexplorer.model.Analysis
+import be.jochemjanssens.yardexplorer.model.Layer
+import be.jochemjanssens.yardexplorer.model.Squadrats
+import be.jochemjanssens.yardexplorer.ui.map.MapData
+import be.jochemjanssens.yardexplorer.ui.map.TOP
+import be.jochemjanssens.yardexplorer.ui.map.buildMapData
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow

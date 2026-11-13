@@ -1,4 +1,4 @@
-package io.github.jochemjanssens.yardexplorer.ui
+package be.jochemjanssens.yardexplorer.ui
 
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
@@ -26,11 +26,11 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import io.github.jochemjanssens.yardexplorer.ui.theme.Ink
-import io.github.jochemjanssens.yardexplorer.ui.theme.LocalYardColors
-import io.github.jochemjanssens.yardexplorer.ui.theme.Signal
-import io.github.jochemjanssens.yardexplorer.ui.theme.YardType
-import io.github.jochemjanssens.yardexplorer.ui.theme.textOn
+import be.jochemjanssens.yardexplorer.ui.theme.Ink
+import be.jochemjanssens.yardexplorer.ui.theme.LocalYardColors
+import be.jochemjanssens.yardexplorer.ui.theme.Signal
+import be.jochemjanssens.yardexplorer.ui.theme.YardType
+import be.jochemjanssens.yardexplorer.ui.theme.textOn
 
 // Building blocks of the tile-grid design: square corners, 1.5 dp ink borders and hard offset shadows.
 

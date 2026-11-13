@@ -1,4 +1,4 @@
-package io.github.jochemjanssens.yardexplorer.model
+package be.jochemjanssens.yardexplorer.model
 
 import kotlin.math.PI
 import kotlin.math.abs
