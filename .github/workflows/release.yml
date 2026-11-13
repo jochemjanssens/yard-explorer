@@ -58,7 +58,7 @@ jobs:
           serviceAccountJsonPlainText: ${{ secrets.PLAY_SERVICE_ACCOUNT_JSON }}
           packageName: be.jochemjanssens.yardexplorer
           releaseFiles: android/app/build/outputs/bundle/release/app-release.aab
-          track: internal
+          tracks: internal
           status: completed
           whatsNewDirectory: android/store/whatsnew
       - name: Remove the key
