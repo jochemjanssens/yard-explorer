@@ -146,13 +146,13 @@ Suggested answers:
 
 ## Release (Testing → Closed testing)
 
-**Release name:** `0.0.1`
+**Release name:** `0.0.2` (0.0.1 had no route recording)
 
 **Release notes** (en-US):
 
 ```
 <en-US>
-First release: every Squadrats Yard and Yardinho you've built, ranked, named and on the map. Top 20 in colour, Away tags for trips far from home, and GPS to see the tile you're in.
+New: record a route. Every tile you cross is tracked live, with the new ones lighting up on the map, and it keeps going with the screen off. Also: every Squadrats Yard and Yardinho ranked, named and on the map, top 20 in colour, and GPS for the tile you're in.
 </en-US>
 ```
 
